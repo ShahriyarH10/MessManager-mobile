@@ -12,6 +12,7 @@ Web app lives in `../Mess-Managements git`.
 
 | Area | State |
 |---|---|
+| Expo SDK 54 (matches store Expo Go) | ✅ |
 | Auth (member login, PBKDF2, session JWT) | ✅ working |
 | Shared settlement logic (ported from `js/core/helpers.js`) | ✅ ported |
 | Member dashboard (net payable, breakdown, mess stats, today, who-ate) | ✅ first screen |
@@ -32,8 +33,10 @@ npx expo start
 Scan the QR code with **Expo Go** (Android) or the Camera app (iOS). Sign in with
 a member/manager account created in the web app.
 
-> Uses only Expo Go–compatible modules (pure-JS crypto, no custom native code),
-> so no dev build is required yet.
+> Pinned to **Expo SDK 54** to match the current App Store / Play Store Expo Go
+> client. Uses only Expo Go–compatible modules (pure-JS crypto, no custom native
+> code), so no dev build is required. When Expo Go ships a newer SDK, bump with
+> `npx expo install expo@<version> && npx expo install --fix`.
 
 ---
 
@@ -98,5 +101,5 @@ to add a Jest suite with shared fixtures so drift is caught automatically
 
 - Backend credentials in `src/lib/config.ts` are the same public ones the web app
   ships with. Override via `.env` (see `.env.example`).
-- `.npmrc` sets `legacy-peer-deps=true` — the Expo 57 / React 19 dependency tree
+- `.npmrc` sets `legacy-peer-deps=true` — the Expo / React 19 dependency tree
   has peer-range friction that this smooths over.
