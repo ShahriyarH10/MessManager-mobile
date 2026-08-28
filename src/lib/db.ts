@@ -164,6 +164,59 @@ export async function dbUpsertUtility(
   if (error) throw error;
 }
 
+/* ── Members admin ─────────────────────────────────────── */
+
+export type MemberInput = {
+  id?: string;
+  name: string;
+  username: string;
+  password?: string;
+  role?: string;
+  room?: string;
+  phone?: string;
+  joined?: string | null;
+  meal_default_day?: number;
+  meal_default_night?: number;
+};
+
+export async function dbSaveMember(row: MemberInput): Promise<void> {
+  const payload: Record<string, unknown> = {
+    name: row.name,
+    username: row.username,
+    role: row.role || 'member',
+    room: row.room || '',
+    phone: row.phone || '',
+    joined: row.joined || null,
+    meal_default_day: row.meal_default_day ?? 1,
+    meal_default_night: row.meal_default_night ?? 1,
+    mess_id: getMessId(),
+  };
+  if (row.password) payload.password = row.password;
+  if (row.id) {
+    const { error } = await getClient().from('members').update(payload).eq('id', row.id);
+    if (error) throw error;
+  } else {
+    if (!payload.password) throw new Error('Password is required for new members');
+    const { error } = await getClient().from('members').insert(payload);
+    if (error) throw error;
+  }
+}
+
+export async function dbDeleteMember(id: string): Promise<void> {
+  const { error } = await getClient().from('members').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function dbSetMemberRole(id: string, role: string): Promise<void> {
+  const { error } = await getClient().from('members').update({ role }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function dbSetMemberPassword(id: string, passwordHash: string): Promise<void> {
+  const { error } = await getClient().from('members').update({ password: passwordHash }).eq('id', id);
+  if (error) throw error;
+}
+
 /* ── Notifications ──────────────────────────────────────── */
 
 export type NotificationRow = {

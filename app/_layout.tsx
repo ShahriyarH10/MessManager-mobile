@@ -40,6 +40,7 @@ function RootStack() {
         <Stack.Screen name="manager/rent-entry" options={{ ...stackScreen, title: 'Room Rent' }} />
         <Stack.Screen name="manager/notifications" options={{ ...stackScreen, title: 'Member Updates' }} />
         <Stack.Screen name="manager/audit-log" options={{ ...stackScreen, title: 'Audit Log' }} />
+        <Stack.Screen name="manager/member-edit" options={{ ...stackScreen, title: 'Member' }} />
       </Stack>
     </>
   );
