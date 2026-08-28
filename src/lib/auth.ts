@@ -85,6 +85,8 @@ export async function login(
 export async function logout(): Promise<void> {
   await clearSession();
   resetClientCache();
+  const { clearCache } = await import('./offline');
+  await clearCache();
 }
 
 /** Port of doChangePassword in js/member/dashboard.js. */

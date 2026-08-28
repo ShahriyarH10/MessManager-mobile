@@ -10,12 +10,12 @@ import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, RentRecord, UtilityRecord } from '../../src/core/types';
 
 const TYPES: { label: string; value: PaymentType }[] = [
-  { label: '⚡ Electricity', value: 'elec' },
-  { label: '📶 WiFi', value: 'wifi' },
-  { label: '🔥 Gas', value: 'gas' },
-  { label: '👩 Khala', value: 'khala' },
-  { label: '📦 Other', value: 'other' },
-  { label: '🏠 Room Rent', value: 'rent' },
+  { label: 'Electricity', value: 'elec' },
+  { label: 'WiFi', value: 'wifi' },
+  { label: 'Gas', value: 'gas' },
+  { label: 'Khala', value: 'khala' },
+  { label: 'Other', value: 'other' },
+  { label: 'Room Rent', value: 'rent' },
 ];
 
 function tone(status?: string) {

@@ -8,38 +8,27 @@ Web app lives in `../Mess-Managements git`.
 
 ---
 
-## Status — the **member app is feature-complete**
+## Status — member **and** manager apps are feature-complete
+
+Native Ionicons throughout (no emoji), platform ripple/press feedback + haptics,
+grouped list rows, offline-aware data.
 
 | Area | State |
 |---|---|
 | Expo SDK 54 (matches store Expo Go) | ✅ |
 | Auth — member/manager login, PBKDF2, session JWT, change password | ✅ |
-| Shared settlement logic (port of `js/core/helpers.js` + `profiles.js`) | ✅ + parity test |
-| **Dashboard** — net payable, charge breakdown, mess stats, today, who-ate | ✅ |
-| **Meal Log** — direct meal entry + notify, absence range, upcoming absences, month calendar | ✅ |
-| **Bazar Log** — direct bazar entry + notify, month total, history | ✅ |
-| **Utility/Rent** — record rent/utility payment + notify, payment history | ✅ |
-| **My Profile** — period selector, balances, stats, meal history, recent months, "What I Owe" | ✅ |
-| **Monthly Log** — full per-member settlement report, any month | ✅ |
-| **Messages** — broadcasts + announcements feed, unread tracking | ✅ |
-| **Mess Info** — WiFi / payment / rules (Markdown) / contacts | ✅ |
-| **Manager — role switch** | manager lands on manager tabs; "View as member" toggle in More |
-| **Manager — Dashboard** | meal/rate/bazar stats, rent + utility collection %, today's meals, bazar leaders, meal-share |
-| **Manager — Meal Entry** | per-member day/night grid, absence badges, quick-fill, recent entries |
-| **Manager — Bazar Entry** | per-member amount grid, day total, recent entries |
-| **Manager — Utility Entry** | prepaid + postpaid bills per month, per-member payment tracking with carry-forward credit |
-| **Manager — Room Rent** | per-member due/paid/status/notes, auto-status, mark-all-paid, history |
-| **Manager — Member Updates** | activity feed of member self-service edits, mark seen |
-| **Manager — Audit Log** | category filter + search + pagination |
-| **Manager — Collect Payment** | waterfall split (prev due→rent→utility→meal), live preview, receipt (text + PDF share) |
-| **Manager — Members** | add / edit / remove, password reset (via edit), promote/demote sub-manager, transfer manager role |
-| **Manager — Analytics** | meal-rate & bazar bar charts by month, member meal-share |
-| **Manager — Mess Fund** | deposits / withdrawals, running balance, history |
-| **Manager — Messages** | post broadcasts (priority / expiry / pin) and announcements, pin/unpin, delete |
-| **Manager — Mess Rules** | edit WiFi / payment / Markdown rules / contacts with live preview |
-| **Monthly Log** | now has "Share PDF" |
-| Manager — Chore roster, absence calendar, month-close lock | 🔜 remaining |
-| Collect — "return change" / "mess owes" drawdown flows | 🔜 remaining (pending change is persisted) |
+| Shared settlement + collect logic (port of `js/core/*` + `profiles.js` + `collect.js`) | ✅ + parity test |
+| **Member** — Dashboard, Meal Log (+ absence range + calendar), Bazar Log, Utility/Rent, Profile, Monthly Log, Mess Info | ✅ |
+| **Broadcasts** — read feed with unread tracking + local push notification on new ones | ✅ |
+| **Manager** — role switch, Dashboard, Meal/Bazar/Utility/Rent entry, Member Updates, Audit Log | ✅ |
+| **Manager — Collect Payment** | waterfall split + **Return change** + **Mess owes** drawdown tables, carry-forward, receipt (text + PDF) | ✅ |
+| **Manager — Members** | add / edit / remove, password reset, sub-manager roles, transfer manager | ✅ |
+| **Manager — Analytics / Mess Fund / Broadcasts / Mess Rules** | ✅ |
+| **Manager — Absence Calendar** | month grid of who's absent (attendance toggles + 0-meal days) + per-member summary | ✅ |
+| **Manager — Month Close** | lock/unlock a month; all entry writes check the lock | ✅ |
+| **Push notifications** | local notification when a new broadcast appears (poll on foreground/interval); Expo push token registered in dev/prod builds | ✅ (Expo Go: local only — see notes) |
+| **Offline caching** | every mess-scoped list read is an AsyncStorage read-through cache; offline strip shows when serving stale data | ✅ |
+| Chore roster | 🔜 (rarely used; `chores` table) |
 | Superadmin | ❌ not planned for mobile |
 
 ### Tests
@@ -104,34 +93,27 @@ src/
     session.ts             AsyncStorage session
     auth.ts                login / signSessionJWT / changePassword
     db.ts                  all reads + writes  (from db.js + db-ext.js; no sanitize())
-    memberActions.ts       saveMyMeal / saveMyBazar / saveMyPayment / absence range
-    announceRead.ts        unread-message tracking
-  context/AuthContext.tsx
+    memberActions.ts       member self-service writes + absence range
+    managerActions.ts      manager entry writes (meals/bazar/rent/utility) + month-lock guard
+    memberAdmin.ts         add/edit/remove member, roles, transfer manager
+    collect.ts             loadCollectData, saveCollectRow, saveChangeRow, saveCreditRow
+    push.ts                local broadcast notifications + push-token registration
+    offline.ts             AsyncStorage read-through cache + connectivity
+    announceRead.ts        unread broadcast tracking
+  core/collect.ts, absence.ts, memberStats.ts, period.ts   pure ports
+  context/AuthContext.tsx  isManager / viewMode / area
   hooks/                   useMessData, useMemberDashboard
-  components/              ui.tsx, form.tsx (Button/Field/DateField/MonthYearField/…), Markdown.tsx
+  components/              ui.tsx, form.tsx, Icon.tsx (Ionicons), MemberGrid.tsx, Markdown.tsx, AppServices.tsx
   theme.ts                 tokens from css/01-variables.css + avatar palette
 scripts/settlement-parity.ts   npm run test:settlement
 ```
 
 ### Keeping logic in sync with the web app
 
-`src/core/*` is a hand-port of `js/core/*` + `js/manager/profiles.js`. When the
-settlement formula changes on web, mirror it here and update
-`scripts/settlement-parity.ts`. `npm run test:settlement` runs it in plain Node.
-
----
-
-## Remaining
-
-- **Chore roster** — view + manager assign/edit (`chores` table; DB shape already
-  in `js/core/db.js`).
-- **Absence calendar** — manager month grid of who's absent (`meal_attendance`).
-- **Month-close lock** — toggle `utility_payments.bills.locked` (writes already
-  respect it via `isMonthLocked`).
-- **Collect extras** — the "return change" and "mess owes" drawdown tables from
-  `collect.js`; overpayment is already persisted to `bills.pending_change`.
-- **Push** — broadcasts → Expo push notifications (needs a dev build).
-- **Offline** — cache `dbGetAll` (React Query + AsyncStorage persister).
+`src/core/*` is a hand-port of `js/core/*` + `js/manager/profiles.js` +
+`collect.js`. When the settlement/collect formula changes on web, mirror it here
+and update `scripts/settlement-parity.ts`. `npm run test:settlement` runs it in
+plain Node.
 
 ---
 
@@ -139,5 +121,15 @@ settlement formula changes on web, mirror it here and update
 
 - Backend credentials in `src/lib/config.ts` are the same public ones the web app
   ships with. Override via `.env` (see `.env.example`).
+- **Push notifications**: `src/lib/push.ts` polls broadcasts while the app is
+  foregrounded (and on resume) and raises a *local* notification for anything
+  new — this works in Expo Go. True background/remote push needs a dev or
+  production build (an Expo push token is registered automatically when running
+  outside Expo Go). No server component is required for the poll-based path.
+- **Offline**: `src/lib/offline.ts` wraps every mess-scoped list read
+  (`dbGetAll`, members, utility, broadcasts, mess rules) in an AsyncStorage
+  read-through cache. On a failed fetch it serves the last cached copy and shows
+  a thin "showing saved data" strip; the cache is wiped on sign-out.
+- Chore roster is the only web feature not ported (low usage).
 - `.npmrc` sets `legacy-peer-deps=true` — the Expo / React 19 dependency tree
   has peer-range friction that this smooths over.

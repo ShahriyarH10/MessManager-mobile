@@ -4,11 +4,19 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../src/context/AuthContext';
 import { dbGetMembers } from '../../src/lib/db';
-import { loadCollectData, saveCollectRow, type CollectRow } from '../../src/lib/collect';
+import {
+  loadCollectData,
+  saveCollectRow,
+  saveChangeRow,
+  saveCreditRow,
+  type CollectRow,
+  type CollectData,
+} from '../../src/lib/collect';
 import { computeSplit, buildReceiptText, buildReceiptHtml } from '../../src/core/collect';
 import { thisMonth, MONTHS, fmtTk, round2, monthLabelFromKey, monthKey } from '../../src/core/format';
-import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../../src/components/ui';
-import { MonthYearField, Field } from '../../src/components/form';
+import { ScreenScroll, Card, CardTitle, Loading, Centered, EmptyState } from '../../src/components/ui';
+import { MonthYearField, Field, Button } from '../../src/components/form';
+import { Icon } from '../../src/components/Icon';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member } from '../../src/core/types';
 
@@ -19,8 +27,9 @@ export default function Collect() {
   const [month, setMonth] = useState(t.month);
   const [year, setYear] = useState(t.year);
   const [members, setMembers] = useState<Member[]>([]);
-  const [rows, setRows] = useState<CollectRow[]>([]);
+  const [cd, setCd] = useState<CollectData | null>(null);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [cashBack, setCashBack] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -32,12 +41,13 @@ export default function Collect() {
     try {
       const [ms, res] = await Promise.all([dbGetMembers(), loadCollectData(month, year)]);
       setMembers(ms);
-      setRows(res.rows);
+      setCd(res);
       const pre: Record<string, string> = {};
       res.rows.forEach((r) => {
         if (r.total > 0) pre[r.id] = String(r.total);
       });
       setAmounts(pre);
+      setCashBack({});
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load.');
     } finally {
@@ -50,10 +60,15 @@ export default function Collect() {
     load();
   }, [load]);
 
-  const owing = useMemo(() => rows.filter((r) => r.total > 0.01 || r.prevDue > 0.01), [rows]);
+  const owing = useMemo(() => (cd?.rows ?? []).filter((r) => r.total > 0.01 || r.prevDue > 0.01), [cd]);
+  const changeRows = useMemo(
+    () => (cd?.rows ?? []).filter((r) => r.pendingChange > 0.01 || r.existingChangeCredit > 0.01),
+    [cd],
+  );
+  const creditRows = useMemo(() => (cd?.rows ?? []).filter((r) => r.netPayable < -0.01), [cd]);
 
-  if (loading && rows.length === 0) return <Loading label="Loading…" />;
-  if (error && rows.length === 0)
+  if (loading && !cd) return <Loading label="Loading…" />;
+  if (error && !cd)
     return (
       <Centered>
         <Text style={{ color: colors.red }}>{error}</Text>
@@ -94,7 +109,7 @@ export default function Collect() {
     ]);
   };
 
-  const onSave = async (r: CollectRow) => {
+  const onCollect = async (r: CollectRow) => {
     const amount = parseFloat(amounts[r.id] || '0');
     if (amount <= 0) {
       Alert.alert('Enter an amount first');
@@ -112,129 +127,236 @@ export default function Collect() {
     }
   };
 
+  const onChange = async (r: CollectRow) => {
+    if (!cd) return;
+    setSavingId(r.id);
+    try {
+      const { cashNow, carry } = await saveChangeRow(
+        r.name, month, year, key, cd.nextMonth, cd.nextYear, cd.nextKey, r,
+        parseFloat(cashBack[r.id] || '0'),
+      );
+      await load();
+      Alert.alert('Change resolved', `Cash returned: ${fmtTk(cashNow)}\nCarried to ${MONTHS[cd.nextMonth]}: ${fmtTk(carry)}`);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Failed.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const onCredit = async (r: CollectRow) => {
+    if (!cd) return;
+    setSavingId(r.id);
+    try {
+      const { cashNow, carry } = await saveCreditRow(
+        r.name, month, year, key, cd.nextMonth, cd.nextYear, cd.nextKey, r,
+        parseFloat(cashBack[r.id] || '0'),
+      );
+      await load();
+      Alert.alert('Credit settled', `Cash handed back: ${fmtTk(cashNow)}\nCarried to ${MONTHS[cd.nextMonth]}: ${fmtTk(carry)}`);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Failed.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const nextLabel = cd ? `${MONTHS[cd.nextMonth]} ${cd.nextYear}` : '';
+
   return (
     <ScreenScroll
       title="Collect Payment"
-      subtitle="Cash a member hands over is split automatically"
+      subtitle="Cash a member hands over splits automatically"
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
       <Field label="Settlement month">
         <MonthYearField month={month} year={year} onChange={(m, y) => { setMonth(m); setYear(y); }} />
       </Field>
       <Text style={{ color: colors.text3, fontSize: 11 }}>
-        Split order: previous due → rent → utility → meal. Extra shows as change.
+        Split order: previous due → rent → utility → meal. Extra becomes change.
       </Text>
 
-      {owing.length === 0 ? (
-        <Centered>
-          <Text style={{ fontSize: 36 }}>✅</Text>
-          <Text style={{ color: colors.text, fontWeight: '700' }}>All settled for {MONTHS[month]} {year}</Text>
-        </Centered>
-      ) : (
-        owing.map((r) => {
-          const amount = parseFloat(amounts[r.id] || '0');
-          const split = computeSplit(amount, r.mealRem, r.utilRem, r.rentRem, r.prevDue);
-          return (
-            <Card key={r.id}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{r.name}</Text>
-                  {r.messCredit > 0 ? (
-                    <Text style={{ color: colors.blue, fontSize: 11 }}>↩ {fmtTk(r.messCredit)} credit applied</Text>
-                  ) : null}
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: colors.text3, fontSize: 10, textTransform: 'uppercase' }}>Total due</Text>
-                  <Text style={{ color: colors.red, fontSize: 18, fontWeight: '800' }}>{fmtTk(r.total)}</Text>
-                </View>
+      {owing.length === 0 && changeRows.length === 0 && creditRows.length === 0 ? (
+        <Card>
+          <EmptyState icon="present" text={`All settled for ${MONTHS[month]} ${year}`} />
+        </Card>
+      ) : null}
+
+      {owing.map((r) => {
+        const amount = parseFloat(amounts[r.id] || '0');
+        const split = computeSplit(amount, r.mealRem, r.utilRem, r.rentRem, r.prevDue);
+        return (
+          <Card key={r.id}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{r.name}</Text>
+                {r.messCredit > 0 ? (
+                  <Text style={{ color: colors.blue, fontSize: 11 }}>{fmtTk(r.messCredit)} credit applied</Text>
+                ) : null}
               </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: colors.text3, fontSize: 10, textTransform: 'uppercase' }}>Total due</Text>
+                <Text style={{ color: colors.red, fontSize: 18, fontWeight: '800' }}>{fmtTk(r.total)}</Text>
+              </View>
+            </View>
 
-              {r.prevDue > 0.01 ? (
-                <View style={{ backgroundColor: colors.redBg, borderRadius: radiusSm, padding: 8, marginTop: 10 }}>
-                  <Text style={{ color: colors.red, fontSize: 12, fontWeight: '600' }}>
-                    ⚠ {fmtTk(r.prevDue)} unpaid from before
-                  </Text>
-                </View>
-              ) : null}
+            {r.prevDue > 0.01 ? (
+              <View
+                style={{
+                  backgroundColor: colors.redBg,
+                  borderRadius: radiusSm,
+                  padding: 8,
+                  marginTop: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Icon name="warning" size={13} color={colors.red} />
+                <Text style={{ color: colors.red, fontSize: 12, fontWeight: '600' }}>
+                  {fmtTk(r.prevDue)} unpaid from before
+                </Text>
+              </View>
+            ) : null}
 
-              <View style={{ gap: 5, marginTop: 10 }}>
-                <Line label="⏪ Previous due" value={r.prevDue} colors={colors} />
-                <Line label="🏠 Rent" value={r.rentRem} colors={colors} />
-                <Line label="⚡ Utility" value={r.utilRem} colors={colors} />
-                <Line
-                  label="🍽️ Meal balance"
-                  value={r.mealRem}
-                  colors={colors}
-                  surplus={r.mealRem < 0}
+            <View style={{ gap: 5, marginTop: 10 }}>
+              <Line label="Previous due" value={r.prevDue} colors={colors} />
+              <Line label="Rent" value={r.rentRem} colors={colors} />
+              <Line label="Utility" value={r.utilRem} colors={colors} />
+              <Line label="Meal balance" value={r.mealRem} colors={colors} surplus={r.mealRem < 0} />
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: colors.bg2,
+                  borderColor: colors.border2,
+                  borderWidth: 1,
+                  borderRadius: radiusSm,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text style={{ color: colors.text3, fontSize: 16, fontWeight: '700' }}>৳</Text>
+                <TextInput
+                  value={amounts[r.id] ?? ''}
+                  onChangeText={(x) => setAmounts((p) => ({ ...p, [r.id]: x.replace(/[^0-9.]/g, '') }))}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={colors.text3}
+                  style={{ flex: 1, color: colors.text, fontSize: 18, fontWeight: '700', paddingVertical: 11, textAlign: 'right' }}
                 />
               </View>
+              <Button label="Save" onPress={() => onCollect(r)} busy={savingId === r.id} style={{ paddingHorizontal: 22 }} />
+            </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
-                <View
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: colors.bg2,
-                    borderColor: colors.border2,
-                    borderWidth: 1,
-                    borderRadius: radiusSm,
-                    paddingHorizontal: 12,
-                  }}
-                >
-                  <Text style={{ color: colors.text3, fontSize: 16, fontWeight: '700' }}>৳</Text>
-                  <TextInput
-                    value={amounts[r.id] ?? ''}
-                    onChangeText={(x) => setAmounts((p) => ({ ...p, [r.id]: x.replace(/[^0-9.]/g, '') }))}
-                    keyboardType="decimal-pad"
-                    placeholder="0"
-                    placeholderTextColor={colors.text3}
-                    style={{ flex: 1, color: colors.text, fontSize: 18, fontWeight: '700', paddingVertical: 11, textAlign: 'right' }}
-                  />
-                </View>
-                <Pressable
-                  onPress={() => onSave(r)}
-                  disabled={savingId === r.id}
-                  style={{
-                    backgroundColor: colors.accent,
-                    borderRadius: radiusSm,
-                    paddingHorizontal: 20,
-                    paddingVertical: 12,
-                    opacity: savingId === r.id ? 0.6 : 1,
-                  }}
-                >
-                  <Text style={{ color: '#1a1816', fontWeight: '800' }}>{savingId === r.id ? '…' : 'Save'}</Text>
-                </Pressable>
+            {amount > 0 ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {split.allocPrevDue > 0 ? <Chip text={`Prev ${fmtTk(split.allocPrevDue)}`} tone={colors.red} bg={colors.redBg} /> : null}
+                {split.allocRent > 0 ? <Chip text={`Rent ${fmtTk(split.allocRent)}`} tone={colors.amber} bg={colors.accentBg} /> : null}
+                {split.allocUtil > 0 ? <Chip text={`Util ${fmtTk(split.allocUtil)}`} tone={colors.blue} bg={colors.blueBg} /> : null}
+                {split.allocMeal > 0 ? <Chip text={`Meal ${fmtTk(split.allocMeal)}`} tone={colors.purple} bg={colors.purpleBg} /> : null}
+                {split.change > 0 ? <Chip text={`Change ${fmtTk(split.change)}`} tone={colors.green} bg={colors.greenBg} /> : null}
               </View>
+            ) : null}
+          </Card>
+        );
+      })}
 
-              {amount > 0 ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                  {split.allocPrevDue > 0 ? <Chip text={`⏪ ${fmtTk(split.allocPrevDue)}`} tone={colors.red} bg={colors.redBg} /> : null}
-                  {split.allocRent > 0 ? <Chip text={`🏠 ${fmtTk(split.allocRent)}`} tone={colors.amber} bg={colors.accentBg} /> : null}
-                  {split.allocUtil > 0 ? <Chip text={`⚡ ${fmtTk(split.allocUtil)}`} tone={colors.blue} bg={colors.blueBg} /> : null}
-                  {split.allocMeal > 0 ? <Chip text={`🍽️ ${fmtTk(split.allocMeal)}`} tone={colors.purple} bg={colors.purpleBg} /> : null}
-                  {split.change > 0 ? <Chip text={`💸 Change ${fmtTk(split.change)}`} tone={colors.green} bg={colors.greenBg} /> : null}
+      {changeRows.length > 0 ? (
+        <>
+          <CardTitle icon="share">Return change</CardTitle>
+          {changeRows.map((r) => {
+            const remaining = round2(Math.max(0, r.pendingChange - r.existingChangeCredit));
+            const cash = parseFloat(cashBack[r.id] || '0');
+            const carry = round2(Math.max(0, remaining - Math.min(cash, remaining)));
+            return (
+              <Card key={'chg' + r.id}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>{r.name}</Text>
+                  <Text style={{ color: colors.accent, fontWeight: '800' }}>{fmtTk(remaining)} to return</Text>
                 </View>
-              ) : null}
-            </Card>
-          );
-        })
-      )}
+                <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }}>
+                  Overpaid {fmtTk(r.pendingChange)}
+                  {r.existingChangeCredit > 0 ? ` · ${fmtTk(r.existingChangeCredit)} already carried` : ''}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 10 }}>
+                  <CashInput value={cashBack[r.id] ?? ''} onChange={(x) => setCashBack((p) => ({ ...p, [r.id]: x }))} colors={colors} />
+                  <Button label="Save" onPress={() => onChange(r)} busy={savingId === r.id} style={{ paddingHorizontal: 22 }} />
+                </View>
+                <Text style={{ color: colors.blue, fontSize: 11, marginTop: 8 }}>
+                  {carry > 0 ? `Carries ${fmtTk(carry)} to ${nextLabel}` : 'Fully returned'} · ৳0 = carry all
+                </Text>
+              </Card>
+            );
+          })}
+        </>
+      ) : null}
+
+      {creditRows.length > 0 ? (
+        <>
+          <CardTitle icon="fund">Mess owes these members</CardTitle>
+          {creditRows.map((r) => {
+            const messOwes = round2(Math.abs(r.netPayable));
+            const remaining = round2(Math.max(0, messOwes - r.existingCarryCredit));
+            const cash = parseFloat(cashBack[r.id] || '0');
+            const carry = round2(Math.max(0, remaining - Math.min(cash, remaining)));
+            return (
+              <Card key={'cc' + r.id}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>{r.name}</Text>
+                  <Text style={{ color: colors.green, fontWeight: '800' }}>{fmtTk(remaining)} owed</Text>
+                </View>
+                <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }}>
+                  Total {fmtTk(messOwes)}
+                  {r.existingCarryCredit > 0 ? ` · ${fmtTk(r.existingCarryCredit)} already carried` : ''}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 10 }}>
+                  <CashInput value={cashBack[r.id] ?? ''} onChange={(x) => setCashBack((p) => ({ ...p, [r.id]: x }))} colors={colors} />
+                  <Button label="Save" onPress={() => onCredit(r)} busy={savingId === r.id} style={{ paddingHorizontal: 22 }} />
+                </View>
+                <Text style={{ color: colors.blue, fontSize: 11, marginTop: 8 }}>
+                  {carry > 0 ? `Carries ${fmtTk(carry)} to ${nextLabel}` : 'Fully settled'} · ৳0 = carry all
+                </Text>
+              </Card>
+            );
+          })}
+        </>
+      ) : null}
     </ScreenScroll>
   );
 }
 
-function Line({
-  label,
-  value,
-  colors,
-  surplus,
-}: {
-  label: string;
-  value: number;
-  colors: any;
-  surplus?: boolean;
-}) {
+function CashInput({ value, onChange, colors }: { value: string; onChange: (x: string) => void; colors: any }) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.bg2,
+        borderColor: colors.border2,
+        borderWidth: 1,
+        borderRadius: radiusSm,
+        paddingHorizontal: 12,
+      }}
+    >
+      <Text style={{ color: colors.text3, fontSize: 15, fontWeight: '700' }}>৳</Text>
+      <TextInput
+        value={value}
+        onChangeText={(x) => onChange(x.replace(/[^0-9.]/g, ''))}
+        keyboardType="decimal-pad"
+        placeholder="cash now"
+        placeholderTextColor={colors.text3}
+        style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '700', paddingVertical: 10, textAlign: 'right' }}
+      />
+    </View>
+  );
+}
+
+function Line({ label, value, colors, surplus }: { label: string; value: number; colors: any; surplus?: boolean }) {
   if (value === 0 && !surplus) {
     return (
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>

@@ -1,7 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, TextStyle, ScrollView, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ViewStyle,
+  TextStyle,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, radius, radiusSm } from '../theme';
+import { Icon, type IconName } from './Icon';
+
+const shadow = (elevation: number): ViewStyle =>
+  Platform.select<ViewStyle>({
+    ios: {
+      shadowColor: '#000',
+      shadowOpacity: 0.06,
+      shadowRadius: elevation * 1.6,
+      shadowOffset: { width: 0, height: elevation * 0.6 },
+    },
+    android: { elevation },
+    default: {},
+  }) ?? {};
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const { colors } = useTheme();
@@ -15,6 +37,7 @@ export function Card({ children, style }: { children: React.ReactNode; style?: V
           borderRadius: radius,
           padding: 16,
         },
+        shadow(1),
         style,
       ]}
     >
@@ -23,12 +46,23 @@ export function Card({ children, style }: { children: React.ReactNode; style?: V
   );
 }
 
-export function CardTitle({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
+export function CardTitle({
+  children,
+  icon,
+  style,
+}: {
+  children: React.ReactNode;
+  icon?: IconName;
+  style?: TextStyle;
+}) {
   const { colors } = useTheme();
   return (
-    <Text style={[{ color: colors.text, fontSize: 15, fontWeight: '700', marginBottom: 10 }, style]}>
-      {children}
-    </Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+      {icon ? <Icon name={icon} size={16} color={colors.text2} /> : null}
+      <Text style={[{ color: colors.text, fontSize: 15, fontWeight: '700', letterSpacing: 0.2 }, style]}>
+        {children}
+      </Text>
+    </View>
   );
 }
 
@@ -51,12 +85,12 @@ export function StatCard({
         flexBasis: '47%',
         backgroundColor: colors.bg3,
         borderRadius: radiusSm,
-        borderTopWidth: accent ? 3 : 0,
-        borderTopColor: accent,
+        borderLeftWidth: accent ? 3 : 0,
+        borderLeftColor: accent,
         padding: 13,
       }}
     >
-      <Text style={{ color: colors.text3, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      <Text style={{ color: colors.text3, fontSize: 11, fontWeight: '600', letterSpacing: 0.3 }}>
         {label}
       </Text>
       <Text style={{ color: accent ?? colors.text, fontSize: 21, fontWeight: '800', marginTop: 6 }}>
@@ -95,11 +129,19 @@ export function ScreenScroll({
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, gap: 14 }}
+      contentContainerStyle={{
+        padding: 16,
+        paddingTop: insets.top + 14,
+        paddingBottom: insets.bottom + 40,
+        gap: 14,
+      }}
+      keyboardShouldPersistTaps="handled"
       refreshControl={refreshControl}
     >
-      <View>
-        <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{title}</Text>
+      <View style={{ marginBottom: 2 }}>
+        <Text style={{ color: colors.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.4 }}>
+          {title}
+        </Text>
         {subtitle ? (
           <Text style={{ color: colors.text3, fontSize: 13, marginTop: 3 }}>{subtitle}</Text>
         ) : null}
@@ -112,7 +154,16 @@ export function ScreenScroll({
 export function Centered({ children }: { children: React.ReactNode }) {
   const { colors } = useTheme();
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, gap: 12, padding: 24 }}>
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.bg,
+        gap: 12,
+        padding: 24,
+      }}
+    >
       {children}
     </View>
   );
@@ -125,5 +176,37 @@ export function Loading({ label }: { label?: string }) {
       <ActivityIndicator color={colors.accent} />
       {label ? <Text style={{ color: colors.text3 }}>{label}</Text> : null}
     </Centered>
+  );
+}
+
+export function EmptyState({ icon, text }: { icon?: IconName; text: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ alignItems: 'center', gap: 10, paddingVertical: 28 }}>
+      {icon ? <Icon name={icon} size={34} color={colors.text3} /> : null}
+      <Text style={{ color: colors.text3, fontSize: 14, textAlign: 'center' }}>{text}</Text>
+    </View>
+  );
+}
+
+/** Small "offline / cached" banner. */
+export function OfflineBanner({ show }: { show: boolean }) {
+  const { colors } = useTheme();
+  if (!show) return null;
+  return (
+    <View
+      style={{
+        backgroundColor: colors.bg3,
+        borderRadius: radiusSm,
+        paddingVertical: 7,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      <Icon name="warning" size={14} color={colors.text3} />
+      <Text style={{ color: colors.text3, fontSize: 12 }}>Offline — showing saved data</Text>
+    </View>
   );
 }

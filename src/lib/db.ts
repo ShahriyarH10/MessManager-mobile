@@ -7,6 +7,7 @@
  */
 import { getClient } from './supabase';
 import { getMessId, getSession } from './session';
+import { withCache } from './offline';
 import { MONTHS } from '../core/format';
 import type {
   Member,
@@ -26,24 +27,26 @@ function orderColumn(table: string): string {
 
 /** Paginated full-table fetch scoped to the current mess (Supabase caps at 1000/page). */
 export async function dbGetAll<T = any>(table: string): Promise<T[]> {
-  const orderCol = orderColumn(table);
-  const PAGE = 1000;
-  let all: T[] = [];
-  let from = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data, error } = await getClient()
-      .from(table)
-      .select('*')
-      .eq('mess_id', getMessId())
-      .order(orderCol)
-      .range(from, from + PAGE - 1);
-    if (error) throw error;
-    all = all.concat((data as T[]) || []);
-    if (!data || data.length < PAGE) break;
-    from += PAGE;
-  }
-  return all;
+  return withCache(`all_${table}`, async () => {
+    const orderCol = orderColumn(table);
+    const PAGE = 1000;
+    let all: T[] = [];
+    let from = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await getClient()
+        .from(table)
+        .select('*')
+        .eq('mess_id', getMessId())
+        .order(orderCol)
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      all = all.concat((data as T[]) || []);
+      if (!data || data.length < PAGE) break;
+      from += PAGE;
+    }
+    return all;
+  });
 }
 
 export const dbGetMeals = () => dbGetAll<MealRow>('meals');
@@ -51,22 +54,26 @@ export const dbGetBazar = () => dbGetAll<BazarRow>('bazar');
 export const dbGetRent = () => dbGetAll<RentRecord>('rent');
 
 export async function dbGetMembers(): Promise<Member[]> {
-  const { data, error } = await getClient()
-    .from('members')
-    .select('*')
-    .eq('mess_id', getMessId())
-    .order('created_at');
-  if (error) throw error;
-  return (data as Member[]) || [];
+  return withCache('members', async () => {
+    const { data, error } = await getClient()
+      .from('members')
+      .select('*')
+      .eq('mess_id', getMessId())
+      .order('created_at');
+    if (error) throw error;
+    return (data as Member[]) || [];
+  });
 }
 
 export async function dbGetUtility(): Promise<UtilityRecord[]> {
-  const { data, error } = await getClient()
-    .from('utility_payments')
-    .select('*')
-    .eq('mess_id', getMessId());
-  if (error) throw error;
-  return (data as UtilityRecord[]) || [];
+  return withCache('utility', async () => {
+    const { data, error } = await getClient()
+      .from('utility_payments')
+      .select('*')
+      .eq('mess_id', getMessId());
+    if (error) throw error;
+    return (data as UtilityRecord[]) || [];
+  });
 }
 
 export async function dbGetMealByDate(date: string): Promise<MealRow | null> {
@@ -341,13 +348,15 @@ export type MessRules = {
 };
 
 export async function dbGetMessRules(): Promise<MessRules | null> {
-  const { data, error } = await getClient()
-    .from('mess_rules')
-    .select('*')
-    .eq('mess_id', getMessId())
-    .maybeSingle();
-  if (error) throw error;
-  return (data as MessRules) || null;
+  return withCache('mess_rules', async () => {
+    const { data, error } = await getClient()
+      .from('mess_rules')
+      .select('*')
+      .eq('mess_id', getMessId())
+      .maybeSingle();
+    if (error) throw error;
+    return (data as MessRules) || null;
+  });
 }
 
 export async function dbSaveMessRules(rules: MessRules): Promise<void> {
@@ -381,15 +390,17 @@ export type Broadcast = {
 
 /** All broadcasts (pinned first). Filter expired at the call site for members. */
 export async function dbGetBroadcastsRaw(): Promise<Broadcast[]> {
-  const { data, error } = await getClient()
-    .from('broadcasts')
-    .select('*')
-    .eq('mess_id', getMessId())
-    .order('pinned', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(30);
-  if (error) throw error;
-  return (data as Broadcast[]) || [];
+  return withCache('broadcasts', async () => {
+    const { data, error } = await getClient()
+      .from('broadcasts')
+      .select('*')
+      .eq('mess_id', getMessId())
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) throw error;
+    return (data as Broadcast[]) || [];
+  });
 }
 
 export async function dbGetActiveBroadcasts(): Promise<Broadcast[]> {
@@ -545,6 +556,17 @@ export async function dbGetAttendanceForDate(date: string): Promise<AttendanceRo
   return (data as AttendanceRow[]) || [];
 }
 
+export async function dbGetAttendanceRange(from: string, to: string): Promise<AttendanceRow[]> {
+  const { data, error } = await getClient()
+    .from('meal_attendance')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .gte('date', from)
+    .lte('date', to);
+  if (error) throw error;
+  return (data as AttendanceRow[]) || [];
+}
+
 /* ── Row delete (meals/bazar) ──────────────────────────── */
 
 export async function dbDeleteRow(table: string, id: string): Promise<void> {
@@ -566,6 +588,46 @@ export async function isMonthLocked(key: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function dbSetMonthLocked(key: string, locked: boolean): Promise<void> {
+  const [y, m] = key.split('-').map(Number);
+  const rec = await dbGetUtilityMonth(key);
+  const bills = { ...((rec?.bills || {}) as Record<string, unknown>) };
+  if (locked) bills.locked = true;
+  else delete bills.locked;
+  await dbUpsertUtility(m - 1, y, key, bills, rec?.payments || {});
+}
+
+/** All month keys that have any data (meals/bazar/rent/utility) + their lock state. */
+export async function dbGetMonthLockList(): Promise<
+  { key: string; locked: boolean; mealDays: number; bazarDays: number }[]
+> {
+  const [util, rent, meals, bazar] = await Promise.all([
+    getClient().from('utility_payments').select('month_key,bills').eq('mess_id', getMessId()),
+    getClient().from('rent').select('month_key').eq('mess_id', getMessId()),
+    dbGetMeals(),
+    dbGetBazar(),
+  ]);
+  const keys = new Set<string>();
+  (util.data || []).forEach((r: any) => keys.add(r.month_key));
+  (rent.data || []).forEach((r: any) => keys.add(r.month_key));
+  meals.forEach((r) => keys.add(String(r.date || '').slice(0, 7)));
+  bazar.forEach((r) => keys.add(String(r.date || '').slice(0, 7)));
+  keys.delete('');
+  const lockMap: Record<string, boolean> = {};
+  (util.data || []).forEach((r: any) => (lockMap[r.month_key] = !!r.bills?.locked));
+  return Array.from(keys)
+    .filter(Boolean)
+    .sort()
+    .reverse()
+    .slice(0, 24)
+    .map((key) => ({
+      key,
+      locked: lockMap[key] || false,
+      mealDays: meals.filter((r) => String(r.date || '').startsWith(key)).length,
+      bazarDays: bazar.filter((r) => String(r.date || '').startsWith(key)).length,
+    }));
 }
 
 /* ── Audit log ─────────────────────────────────────────── */

@@ -1,15 +1,19 @@
 import React from 'react';
-import { Text, type ColorValue } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/theme';
 import { Loading } from '../../src/components/ui';
 
-function TabIcon({ icon, color }: { icon: string; color: ColorValue }) {
-  return <Text style={{ fontSize: 19, color }}>{icon}</Text>;
-}
+const ICONS = {
+  index: ['grid-outline', 'grid'],
+  meals: ['restaurant-outline', 'restaurant'],
+  bazar: ['cart-outline', 'cart'],
+  payments: ['card-outline', 'card'],
+  more: ['ellipsis-horizontal-outline', 'ellipsis-horizontal'],
+} as const;
 
-export default function TabsLayout() {
+export default function MemberLayout() {
   const { ready, user } = useAuth();
   const { colors } = useTheme();
 
@@ -18,33 +22,23 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.text3,
         tabBarStyle: { backgroundColor: colors.bg1, borderTopColor: colors.border },
-      }}
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarIcon: ({ color, focused, size }) => {
+          const pair = ICONS[route.name as keyof typeof ICONS] ?? ICONS.more;
+          return <Ionicons name={(focused ? pair[1] : pair[0]) as any} size={size ?? 22} color={color} />;
+        },
+      })}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: 'Dashboard', tabBarIcon: ({ color }) => <TabIcon icon="🏠" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="meals"
-        options={{ title: 'Meals', tabBarIcon: ({ color }) => <TabIcon icon="🍽️" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="bazar"
-        options={{ title: 'Bazar', tabBarIcon: ({ color }) => <TabIcon icon="🛒" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="payments"
-        options={{ title: 'Utility/Rent', tabBarIcon: ({ color }) => <TabIcon icon="🧾" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="more"
-        options={{ title: 'More', tabBarIcon: ({ color }) => <TabIcon icon="⋯" color={color} /> }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Dashboard' }} />
+      <Tabs.Screen name="meals" options={{ title: 'Meals' }} />
+      <Tabs.Screen name="bazar" options={{ title: 'Bazar' }} />
+      <Tabs.Screen name="payments" options={{ title: 'Utility/Rent' }} />
+      <Tabs.Screen name="more" options={{ title: 'More' }} />
     </Tabs>
   );
 }

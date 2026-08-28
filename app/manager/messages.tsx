@@ -2,18 +2,15 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, RefreshControl, Alert } from 'react-native';
 import {
   dbGetBroadcastsRaw,
-  dbGetAnnouncements,
   dbPostBroadcast,
   dbDeleteBroadcast,
   dbSetBroadcastPinned,
-  dbSaveAnnouncement,
-  dbDeleteAnnouncement,
   logAudit,
   type Broadcast,
-  type Announcement,
 } from '../../src/lib/db';
-import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../../src/components/ui';
+import { ScreenScroll, Card, CardTitle, Loading, Centered, EmptyState } from '../../src/components/ui';
 import { Button, Field, TextField, SegmentedControl, PickerField, Badge } from '../../src/components/form';
+import { Icon } from '../../src/components/Icon';
 import { useTheme, radius, radiusSm } from '../../src/theme';
 
 const EXPIRY: { label: string; value: string }[] = [
@@ -24,29 +21,22 @@ const EXPIRY: { label: string; value: string }[] = [
   { label: '1 week', value: '168' },
 ];
 
-export default function ManagerMessages() {
+export default function ManagerBroadcasts() {
   const { colors } = useTheme();
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [kind, setKind] = useState<'broadcast' | 'announcement'>('broadcast');
-  const [bMsg, setBMsg] = useState('');
-  const [bPriority, setBPriority] = useState<'normal' | 'urgent'>('normal');
-  const [bExpiry, setBExpiry] = useState('');
-  const [bPin, setBPin] = useState(false);
-  const [aTitle, setATitle] = useState('');
-  const [aBody, setABody] = useState('');
-  const [aPin, setAPin] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [priority, setPriority] = useState<'normal' | 'urgent'>('normal');
+  const [expiry, setExpiry] = useState('');
+  const [pin, setPin] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [b, a] = await Promise.all([dbGetBroadcastsRaw(), dbGetAnnouncements()]);
-      setBroadcasts(b);
-      setAnnouncements(a);
+      setBroadcasts(await dbGetBroadcastsRaw());
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load.');
     } finally {
@@ -58,7 +48,7 @@ export default function ManagerMessages() {
     load();
   }, [load]);
 
-  if (loading && broadcasts.length === 0 && announcements.length === 0) return <Loading label="Loading…" />;
+  if (loading && broadcasts.length === 0) return <Loading label="Loading…" />;
   if (error && broadcasts.length === 0)
     return (
       <Centered>
@@ -70,28 +60,18 @@ export default function ManagerMessages() {
     );
 
   const post = async () => {
+    if (!msg.trim()) {
+      Alert.alert('Message is required');
+      return;
+    }
     setBusy(true);
     try {
-      if (kind === 'broadcast') {
-        if (!bMsg.trim()) {
-          Alert.alert('Message is required');
-          return;
-        }
-        await dbPostBroadcast(bMsg.trim(), bPriority, bPin, bExpiry ? parseInt(bExpiry, 10) : null);
-        await logAudit('create', 'broadcast', '', `Broadcast: "${bMsg.slice(0, 50)}"`);
-        setBMsg('');
-        setBPin(false);
-      } else {
-        if (!aTitle.trim() || !aBody.trim()) {
-          Alert.alert('Title and message are required');
-          return;
-        }
-        await dbSaveAnnouncement({ title: aTitle.trim(), body: aBody.trim(), pinned: aPin });
-        await logAudit('create', 'announcement', '', `Announcement: "${aTitle.slice(0, 50)}"`);
-        setATitle('');
-        setABody('');
-        setAPin(false);
-      }
+      await dbPostBroadcast(msg.trim(), priority, pin, expiry ? parseInt(expiry, 10) : null);
+      await logAudit('create', 'broadcast', '', `Broadcast: "${msg.slice(0, 50)}"`);
+      setMsg('');
+      setPin(false);
+      setPriority('normal');
+      setExpiry('');
       await load();
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Failed.');
@@ -100,171 +80,101 @@ export default function ManagerMessages() {
     }
   };
 
-  const delBroadcast = (id: string) =>
+  const del = (id: string) =>
     Alert.alert('Delete broadcast?', '', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => { await dbDeleteBroadcast(id); load(); } },
     ]);
-  const delAnnouncement = (id: string) =>
-    Alert.alert('Delete announcement?', '', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await dbDeleteAnnouncement(id); load(); } },
-    ]);
 
   return (
     <ScreenScroll
-      title="Messages"
-      subtitle="Post broadcasts & announcements"
+      title="Broadcasts"
+      subtitle="Messages every member sees"
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
       <Card>
-        <CardTitle>New message</CardTitle>
-        <SegmentedControl
-          options={[
-            { label: '📢 Broadcast', value: 'broadcast' },
-            { label: '📣 Announcement', value: 'announcement' },
-          ]}
-          value={kind}
-          onChange={setKind}
-        />
-        {kind === 'broadcast' ? (
-          <View style={{ gap: 12, marginTop: 12 }}>
-            <Field label="Message">
-              <TextField value={bMsg} onChangeText={setBMsg} placeholder="e.g. Pay rent by Friday!" multiline />
-            </Field>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Field label="Priority">
-                  <SegmentedControl
-                    options={[
-                      { label: 'Normal', value: 'normal' },
-                      { label: '🔴 Urgent', value: 'urgent' },
-                    ]}
-                    value={bPriority}
-                    onChange={setBPriority}
-                  />
-                </Field>
-              </View>
+        <CardTitle icon="broadcast">New broadcast</CardTitle>
+        <View style={{ gap: 12 }}>
+          <Field label="Message">
+            <TextField value={msg} onChangeText={setMsg} placeholder="e.g. Pay rent by Friday" multiline />
+          </Field>
+          <Field label="Priority">
+            <SegmentedControl
+              options={[
+                { label: 'Normal', value: 'normal' },
+                { label: 'Urgent', value: 'urgent' },
+              ]}
+              value={priority}
+              onChange={setPriority}
+            />
+          </Field>
+          <Field label="Auto-expire">
+            <PickerField options={EXPIRY} value={expiry} onChange={setExpiry} placeholder="Never" />
+          </Field>
+          <Pressable
+            onPress={() => setPin((v) => !v)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bg3, borderRadius: radiusSm, padding: 12 }}
+          >
+            <View
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                borderWidth: 2,
+                borderColor: pin ? colors.accent : colors.text3,
+                backgroundColor: pin ? colors.accent : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {pin ? <Icon name="check" size={12} color="#1a1816" /> : null}
             </View>
-            <Field label="Auto-expire">
-              <PickerField options={EXPIRY} value={bExpiry} onChange={setBExpiry} placeholder="Never" />
-            </Field>
-            <PinToggle on={bPin} onToggle={() => setBPin((v) => !v)} />
-          </View>
-        ) : (
-          <View style={{ gap: 12, marginTop: 12 }}>
-            <Field label="Title">
-              <TextField value={aTitle} onChangeText={setATitle} placeholder="e.g. Rent due reminder" />
-            </Field>
-            <Field label="Message">
-              <TextField value={aBody} onChangeText={setABody} placeholder="Write your message…" multiline />
-            </Field>
-            <PinToggle on={aPin} onToggle={() => setAPin((v) => !v)} />
-          </View>
-        )}
-        <View style={{ marginTop: 14 }}>
-          <Button label="Post" onPress={post} busy={busy} />
+            <Text style={{ color: colors.text2, fontSize: 13 }}>Pin to top</Text>
+          </Pressable>
+          <Button label="Send broadcast" onPress={post} busy={busy} />
         </View>
       </Card>
 
-      <CardTitle>Broadcasts</CardTitle>
+      <CardTitle>Sent</CardTitle>
       {broadcasts.length === 0 ? (
         <Card>
-          <Text style={{ color: colors.text3 }}>No broadcasts.</Text>
+          <EmptyState icon="broadcast" text="No broadcasts yet." />
         </Card>
       ) : (
-        broadcasts.map((b) => (
-          <View
-            key={b.id}
-            style={{
-              backgroundColor: b.priority === 'urgent' ? colors.redBg : b.pinned ? colors.accentBg : colors.bg2,
-              borderColor: colors.border,
-              borderWidth: 1,
-              borderRadius: radius,
-              padding: 14,
-            }}
-          >
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
-              {b.pinned ? <Badge text="PINNED" tone="amber" /> : null}
-              {b.priority === 'urgent' ? <Badge text="URGENT" tone="red" /> : null}
-              {b.expires_at && new Date(b.expires_at) < new Date() ? <Badge text="EXPIRED" tone="muted" /> : null}
+        broadcasts.map((b) => {
+          const expired = b.expires_at && new Date(b.expires_at) < new Date();
+          return (
+            <View
+              key={b.id}
+              style={{
+                backgroundColor: b.priority === 'urgent' ? colors.redBg : b.pinned ? colors.accentBg : colors.bg2,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: radius,
+                padding: 14,
+                opacity: expired ? 0.6 : 1,
+              }}
+            >
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+                {b.pinned ? <Badge text="PINNED" tone="amber" /> : null}
+                {b.priority === 'urgent' ? <Badge text="URGENT" tone="red" /> : null}
+                {expired ? <Badge text="EXPIRED" tone="muted" /> : null}
+              </View>
+              <Text style={{ color: colors.text, fontSize: 14, lineHeight: 21 }}>{b.message}</Text>
+              <View style={{ flexDirection: 'row', gap: 18, marginTop: 12 }}>
+                <Pressable onPress={() => dbSetBroadcastPinned(b.id, !b.pinned).then(load)}>
+                  <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '700' }}>
+                    {b.pinned ? 'Unpin' : 'Pin'}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => del(b.id)}>
+                  <Text style={{ color: colors.red, fontSize: 13, fontWeight: '700' }}>Delete</Text>
+                </Pressable>
+              </View>
             </View>
-            <Text style={{ color: colors.text, fontSize: 14 }}>{b.message}</Text>
-            <View style={{ flexDirection: 'row', gap: 14, marginTop: 10 }}>
-              <Pressable onPress={() => dbSetBroadcastPinned(b.id, !b.pinned).then(load)}>
-                <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '700' }}>
-                  {b.pinned ? 'Unpin' : 'Pin'}
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => delBroadcast(b.id)}>
-                <Text style={{ color: colors.red, fontSize: 12, fontWeight: '700' }}>Delete</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
-      )}
-
-      <CardTitle>Announcements</CardTitle>
-      {announcements.length === 0 ? (
-        <Card>
-          <Text style={{ color: colors.text3 }}>No announcements.</Text>
-        </Card>
-      ) : (
-        announcements.map((a) => (
-          <View
-            key={a.id}
-            style={{
-              backgroundColor: a.pinned ? colors.accentBg : colors.bg2,
-              borderColor: colors.border,
-              borderWidth: 1,
-              borderRadius: radius,
-              padding: 14,
-            }}
-          >
-            {a.pinned ? <Badge text="PINNED" tone="amber" /> : null}
-            <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', marginTop: a.pinned ? 6 : 0 }}>
-              {a.title}
-            </Text>
-            <Text style={{ color: colors.text2, fontSize: 13, marginTop: 4 }}>{a.body}</Text>
-            <View style={{ flexDirection: 'row', gap: 14, marginTop: 10 }}>
-              <Pressable onPress={() => dbSaveAnnouncement({ id: a.id, title: a.title, body: a.body, pinned: !a.pinned }).then(load)}>
-                <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '700' }}>
-                  {a.pinned ? 'Unpin' : 'Pin'}
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => delAnnouncement(a.id)}>
-                <Text style={{ color: colors.red, fontSize: 12, fontWeight: '700' }}>Delete</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+          );
+        })
       )}
     </ScreenScroll>
-  );
-}
-
-function PinToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bg3, borderRadius: radiusSm, padding: 12 }}
-    >
-      <View
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: 4,
-          borderWidth: 2,
-          borderColor: on ? colors.accent : colors.text3,
-          backgroundColor: on ? colors.accent : 'transparent',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {on ? <Text style={{ color: '#1a1816', fontSize: 11, fontWeight: '900' }}>✓</Text> : null}
-      </View>
-      <Text style={{ color: colors.text2, fontSize: 13 }}>📌 Pin to top</Text>
-    </Pressable>
   );
 }

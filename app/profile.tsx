@@ -263,17 +263,17 @@ export default function Profile() {
       {/* What I Owe */}
       <Card>
         <CardTitle>What I owe — {v.curLabel}</CardTitle>
-        <OweRow label={`🍽️ Meal cost`} hint={`${round2(v.calc.memberMeals)} meals × ${fmtTk(v.calc.mealRate)}`} value={fmtTk(v.calc.mealCost)} />
-        <OweRow label="👩 Khala share" hint={`${fmtTk(v.calc.khalaTotal)} ÷ ${data!.members.length}`} value={fmtTk(v.calc.khalaShare)} />
-        <OweRow label="📦 Other share" value={fmtTk(v.calc.otherShare)} />
-        <OweRow label="🏠 Rent" hint={v.rentStatus === 'paid' ? '✅ Paid' : '⏳ Not paid'} value={fmtTk(v.calc.roomRent)} />
-        <OweRow label="⚡ Utility share" hint={`${fmtTk(v.calc.prepaidTotal)} ÷ ${data!.members.length}`} value={fmtTk(v.calc.prepaidUtility)} />
-        <OweRow label="− Bazar credit" value={`-${fmtTk(v.calc.memberBazar)}`} good />
-        {v.calc.roomRentPaid > 0 ? <OweRow label="− Rent paid" value={`-${fmtTk(v.calc.roomRentPaid)}`} good /> : null}
-        {v.calc.mealPaid > 0 ? <OweRow label="− Meal paid (cash)" value={`-${fmtTk(v.calc.mealPaid)}`} good /> : null}
-        {v.calc.utilityPaid > 0 ? <OweRow label="− Utility paid" value={`-${fmtTk(v.calc.utilityPaid)}`} good /> : null}
-        {v.calc.messCredit > 0 ? <OweRow label="↩ Carry-forward credit" value={`-${fmtTk(v.calc.messCredit)}`} good /> : null}
-        {v.prevDue > 0 ? <OweRow label="⚠️ Previous due" value={`+${fmtTk(v.prevDue)}`} bad /> : null}
+        <OweRow label="Meal cost" hint={`${round2(v.calc.memberMeals)} meals x ${fmtTk(v.calc.mealRate)}`} value={fmtTk(v.calc.mealCost)} />
+        <OweRow label="Khala share" hint={`${fmtTk(v.calc.khalaTotal)} / ${data!.members.length}`} value={fmtTk(v.calc.khalaShare)} />
+        <OweRow label="Other share" value={fmtTk(v.calc.otherShare)} />
+        <OweRow label="Rent" hint={v.rentStatus === 'paid' ? 'Paid' : 'Not paid'} value={fmtTk(v.calc.roomRent)} />
+        <OweRow label="Utility share" hint={`${fmtTk(v.calc.prepaidTotal)} / ${data!.members.length}`} value={fmtTk(v.calc.prepaidUtility)} />
+        <OweRow label="Bazar credit" value={`-${fmtTk(v.calc.memberBazar)}`} good />
+        {v.calc.roomRentPaid > 0 ? <OweRow label="Rent paid" value={`-${fmtTk(v.calc.roomRentPaid)}`} good /> : null}
+        {v.calc.mealPaid > 0 ? <OweRow label="Meal paid (cash)" value={`-${fmtTk(v.calc.mealPaid)}`} good /> : null}
+        {v.calc.utilityPaid > 0 ? <OweRow label="Utility paid" value={`-${fmtTk(v.calc.utilityPaid)}`} good /> : null}
+        {v.calc.messCredit > 0 ? <OweRow label="Carry-forward credit" value={`-${fmtTk(v.calc.messCredit)}`} good /> : null}
+        {v.prevDue > 0 ? <OweRow label="Previous due" value={`+${fmtTk(v.prevDue)}`} bad /> : null}
         <View
           style={{
             flexDirection: 'row',

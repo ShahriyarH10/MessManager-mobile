@@ -154,7 +154,7 @@ export default function People() {
                     </Text>
                   </View>
                   {m.role !== 'member' ? (
-                    <Badge text={m.role === 'manager' ? '👑' : '⚡'} tone="amber" />
+                    <Badge text={m.role === 'manager' ? 'Manager' : 'Sub'} tone="amber" />
                   ) : null}
                 </View>
                 {isFullManager ? (
@@ -201,9 +201,9 @@ export default function People() {
                     <Text style={{ color: colors.text3, fontSize: 12 }}>@{m.username}</Text>
                   </View>
                   {m.role === 'manager' ? (
-                    <Badge text="👑 Manager" tone="amber" />
+                    <Badge text="Manager" tone="amber" />
                   ) : !isFullManager ? (
-                    <Badge text={m.role === 'sub_manager' ? '⚡ Sub' : 'Member'} tone="muted" />
+                    <Badge text={m.role === 'sub_manager' ? 'Sub' : 'Member'} tone="muted" />
                   ) : m.role === 'sub_manager' ? (
                     <MiniAction label="Demote" onPress={() => doRole(m, false)} />
                   ) : (
@@ -220,7 +220,7 @@ export default function People() {
         <>
           <Card style={{ backgroundColor: colors.redBg, borderColor: 'transparent' }}>
             <Text style={{ color: colors.red, fontSize: 13 }}>
-              ⚠️ After transferring, you lose manager access immediately.
+              After transferring, you lose manager access immediately.
             </Text>
           </Card>
           {others.map((m) => {

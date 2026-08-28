@@ -44,16 +44,16 @@ export default function MessRulesEditor() {
     <ScreenScroll title="Mess Rules & Info" subtitle="Shown to every member">
       <Card>
         <View style={{ gap: 14 }}>
-          <Field label="🔑 WiFi password">
+          <Field label="WiFi password">
             <TextField value={wifi} onChangeText={setWifi} placeholder="e.g. MyWiFi@123" autoCapitalize="none" />
           </Field>
-          <Field label="💳 Bank / payment info">
+          <Field label="Bank / payment info">
             <TextField value={bank} onChangeText={setBank} placeholder="e.g. bKash: 01712345678 (Personal)" multiline />
           </Field>
-          <Field label="📞 Emergency contacts">
+          <Field label="Emergency contacts">
             <TextField value={contacts} onChangeText={setContacts} placeholder="Landlord: 017xxx, Gas: 016xxx" multiline />
           </Field>
-          <Field label="📜 Mess rules (supports # headings, **bold**, - lists)">
+          <Field label="Mess rules (supports # headings, **bold**, - lists)">
             <TextField
               value={rules}
               onChangeText={setRules}

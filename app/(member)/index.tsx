@@ -3,6 +3,7 @@ import { View, Text, RefreshControl, Pressable } from 'react-native';
 import { useMemberDashboard } from '../../src/hooks/useMemberDashboard';
 import { useAuth } from '../../src/context/AuthContext';
 import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../../src/components/ui';
+import { Icon } from '../../src/components/Icon';
 import { useTheme, radiusSm, avatarCol } from '../../src/theme';
 import { fmtTk, initials } from '../../src/core/format';
 
@@ -42,19 +43,19 @@ export default function Dashboard() {
     : 'Settled';
 
   const charges: { label: string; value: number; color: string }[] = [
-    { label: '🍽 Meal', value: calc.mealCost, color: colors.accent },
-    { label: '🏠 Rent', value: calc.roomRent, color: colors.amber },
-    { label: '⚡ Utility', value: calc.prepaidUtility, color: colors.purple },
-    { label: '👩 Khala+Other', value: calc.postpaidUtility, color: colors.blue },
+    { label: 'Meal', value: calc.mealCost, color: colors.accent },
+    { label: 'Rent', value: calc.roomRent, color: colors.amber },
+    { label: 'Utility', value: calc.prepaidUtility, color: colors.purple },
+    { label: 'Khala + Other', value: calc.postpaidUtility, color: colors.blue },
   ].filter((c) => c.value > 0);
   const totalCharges = charges.reduce((s, c) => s + c.value, 0) || 1;
 
   const credits: { label: string; value: number }[] = [
-    { label: '🛒 Bazar', value: calc.memberBazar },
-    { label: '🏠 Rent paid', value: calc.roomRentPaid },
-    { label: '⚡ Utility paid', value: calc.utilityPaid },
-    { label: '💵 Meal paid', value: calc.mealPaid },
-    { label: '↩ Carry fwd', value: calc.messCredit },
+    { label: 'Bazar', value: calc.memberBazar },
+    { label: 'Rent paid', value: calc.roomRentPaid },
+    { label: 'Utility paid', value: calc.utilityPaid },
+    { label: 'Meal paid', value: calc.mealPaid },
+    { label: 'Carry fwd', value: calc.messCredit },
   ].filter((c) => c.value > 0);
 
   return (
@@ -78,7 +79,7 @@ export default function Dashboard() {
         </Text>
         {calc.prevDue > 0 ? (
           <Text style={{ color: colors.red, fontSize: 11, marginTop: 4, fontWeight: '600' }}>
-            ⚠️ Includes {fmtTk(calc.prevDue)} unpaid due carried from before {data.prevLabel}
+            Includes {fmtTk(calc.prevDue)} unpaid due carried from before {data.prevLabel}
           </Text>
         ) : null}
 
@@ -156,22 +157,28 @@ export default function Dashboard() {
 
       {/* Mess-wide stats */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        <StatCard label="🍽️ Mess meals" value={data.messMeals} sub="total this month" accent={colors.accent} />
-        <StatCard label="📊 Meal rate" value={fmtTk(data.mealRate)} sub="per meal this month" accent={colors.blue} />
-        <StatCard label="🛒 Total bazar" value={fmtTk(data.messBazar)} sub="this month" accent={colors.green} />
-        <StatCard label="👥 Members" value={data.memberCount} sub={mess?.name ?? 'this mess'} accent={colors.text3} />
+        <StatCard label="Mess meals" value={data.messMeals} sub="total this month" accent={colors.accent} />
+        <StatCard label="Meal rate" value={fmtTk(data.mealRate)} sub="per meal this month" accent={colors.blue} />
+        <StatCard label="Total bazar" value={fmtTk(data.messBazar)} sub="this month" accent={colors.green} />
+        <StatCard label="Members" value={data.memberCount} sub={mess?.name ?? 'this mess'} accent={colors.text3} />
       </View>
 
       {/* Today */}
       <Card>
-        <CardTitle>
-          {today.isNextDay ? 'Tomorrow' : 'Today'} — {today.dateStr}
+        <CardTitle icon="calendar">
+          {today.isNextDay ? 'Tomorrow' : 'Today'} · {today.dateStr}
         </CardTitle>
         {today.hasEntry ? (
           <>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-              <Text style={{ color: colors.blue, fontSize: 13, fontWeight: '700' }}>☀ {today.totalDay} day</Text>
-              <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '700' }}>🌙 {today.totalNight} night</Text>
+            <View style={{ flexDirection: 'row', gap: 14, marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Icon name="day" size={15} color={colors.blue} />
+                <Text style={{ color: colors.blue, fontSize: 13, fontWeight: '700' }}>{today.totalDay} day</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Icon name="night" size={15} color={colors.accent} />
+                <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '700' }}>{today.totalNight} night</Text>
+              </View>
             </View>
             <View
               style={{
@@ -191,8 +198,8 @@ export default function Dashboard() {
               </Text>
               {today.myDay + today.myNight > 0 ? (
                 <Text style={{ color: colors.text3, fontSize: 12, marginTop: 3 }}>
-                  {today.myDay > 0 ? `☀ Day ${today.myDay}  ` : ''}
-                  {today.myNight > 0 ? `🌙 Night ${today.myNight}` : ''}
+                  {today.myDay > 0 ? `Day ${today.myDay}  ` : ''}
+                  {today.myNight > 0 ? `Night ${today.myNight}` : ''}
                 </Text>
               ) : null}
             </View>

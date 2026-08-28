@@ -23,11 +23,11 @@ import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, UtilityRecord } from '../../src/core/types';
 
 const BILL_FIELDS: { key: string; label: string; group: 'prepaid' | 'postpaid' }[] = [
-  { key: 'elec', label: '⚡ Electricity', group: 'prepaid' },
-  { key: 'gas', label: '🔥 Gas', group: 'prepaid' },
-  { key: 'wifi', label: '📶 WiFi', group: 'prepaid' },
-  { key: 'khala', label: '👩 Khala', group: 'postpaid' },
-  { key: 'other', label: '📦 Other', group: 'postpaid' },
+  { key: 'elec', label: 'Electricity', group: 'prepaid' },
+  { key: 'gas', label: 'Gas', group: 'prepaid' },
+  { key: 'wifi', label: 'WiFi', group: 'prepaid' },
+  { key: 'khala', label: 'Khala', group: 'postpaid' },
+  { key: 'other', label: 'Other', group: 'postpaid' },
 ];
 
 type PayRow = { paid: string; status: string; notes: string };
@@ -237,8 +237,8 @@ export default function UtilityEntry() {
           ))}
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
-          <StatCard label="🔵 Prepaid" value={fmtTk(billPreview.pre)} sub={`${fmtTk(billPreview.preShare)}/member`} accent={colors.blue} />
-          <StatCard label="🔴 Postpaid" value={fmtTk(billPreview.post)} sub={`${fmtTk(billPreview.postShare)}/member`} accent={colors.red} />
+          <StatCard label="Prepaid" value={fmtTk(billPreview.pre)} sub={`${fmtTk(billPreview.preShare)}/member`} accent={colors.blue} />
+          <StatCard label="Postpaid" value={fmtTk(billPreview.post)} sub={`${fmtTk(billPreview.postShare)}/member`} accent={colors.red} />
         </View>
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
           <Button label="Save prepaid" onPress={() => saveBills('prepaid')} busy={savingBills} style={{ flex: 1 }} />
@@ -279,7 +279,7 @@ export default function UtilityEntry() {
                 </View>
                 <Text style={{ color: colors.text3, fontSize: 11 }}>
                   Due {fmtTk(due)}
-                  {cr > 0 ? `  ·  ↩ ${fmtTk(cr)} carried fwd` : ''}
+                  {cr > 0 ? `  ·  ${fmtTk(cr)} carried fwd` : ''}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 1 }}>

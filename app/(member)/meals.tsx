@@ -200,8 +200,8 @@ export default function MealLog() {
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Toggle label="☀ Skip day" on={skipDay} onToggle={() => setSkipDay((v) => !v)} />
-              <Toggle label="🌙 Skip night" on={skipNight} onToggle={() => setSkipNight((v) => !v)} />
+              <Toggle label="Skip day" on={skipDay} onToggle={() => setSkipDay((v) => !v)} />
+              <Toggle label="Skip night" on={skipNight} onToggle={() => setSkipNight((v) => !v)} />
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Button label="Mark absent" onPress={() => runAbsence(true)} busy={absBusy} style={{ flex: 1 }} />
@@ -223,7 +223,7 @@ export default function MealLog() {
           <CardTitle>Upcoming absences</CardTitle>
           {absences.length === 0 ? (
             <Text style={{ color: colors.text3, fontSize: 13 }}>
-              None — you're eating all meals. 🍽️
+              None — you're eating every meal.
             </Text>
           ) : (
             <View style={{ gap: 6 }}>
@@ -245,7 +245,7 @@ export default function MealLog() {
                     <View>
                       <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>{a.date}</Text>
                       <Text style={{ color: colors.text3, fontSize: 11 }}>
-                        {sd && sn ? 'All meals off' : sd ? '☀ Day off' : '🌙 Night off'}
+                        {sd && sn ? 'All meals off' : sd ? 'Day off' : 'Night off'}
                       </Text>
                     </View>
                     <Pressable onPress={() => cancelAbs(a.id)} hitSlop={8}>

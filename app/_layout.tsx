@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/context/AuthContext';
+import { AppServices } from '../src/components/AppServices';
 import { useTheme } from '../src/theme';
 
 function RootStack() {
@@ -45,7 +46,10 @@ function RootStack() {
         <Stack.Screen name="manager/mess-fund" options={{ ...stackScreen, title: 'Mess Fund' }} />
         <Stack.Screen name="manager/messages" options={{ ...stackScreen, title: 'Messages' }} />
         <Stack.Screen name="manager/mess-rules" options={{ ...stackScreen, title: 'Mess Rules' }} />
+        <Stack.Screen name="manager/month-lock" options={{ ...stackScreen, title: 'Month Close' }} />
+        <Stack.Screen name="manager/absence-calendar" options={{ ...stackScreen, title: 'Absence Calendar' }} />
       </Stack>
+      <AppServices />
     </>
   );
 }

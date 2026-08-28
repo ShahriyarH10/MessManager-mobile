@@ -10,9 +10,15 @@ import {
   ScrollView,
   type ViewStyle,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme, radiusSm } from '../theme';
 import { MONTHS, todayStr } from '../core/format';
+import { Icon, type IconName } from './Icon';
+
+function tap() {
+  Haptics.selectionAsync().catch(() => {});
+}
 
 export function Button({
   label,
@@ -37,19 +43,23 @@ export function Button({
   const border = variant === 'ghost' ? colors.border2 : 'transparent';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
       disabled={busy || disabled}
-      style={[
+      android_ripple={{ color: colors.border2 }}
+      style={({ pressed }) => [
         {
           backgroundColor: bg,
           borderColor: border,
           borderWidth: variant === 'ghost' ? 1 : 0,
           borderRadius: radiusSm,
-          paddingVertical: 12,
+          paddingVertical: 13,
           paddingHorizontal: 16,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: busy || disabled ? 0.55 : 1,
+          opacity: busy || disabled ? 0.55 : pressed && Platform.OS === 'ios' ? 0.7 : 1,
         },
         style,
       ]}
@@ -59,6 +69,57 @@ export function Button({
       ) : (
         <Text style={{ color: fg, fontWeight: '800', fontSize: 15 }}>{label}</Text>
       )}
+    </Pressable>
+  );
+}
+
+/** iOS/Android-native list row with leading icon + trailing chevron. */
+export function ListRow({
+  icon,
+  label,
+  sublabel,
+  onPress,
+  first,
+  tone,
+  right,
+}: {
+  icon?: IconName;
+  label: string;
+  sublabel?: string;
+  onPress: () => void;
+  first?: boolean;
+  tone?: 'default' | 'danger' | 'accent';
+  right?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  const color = tone === 'danger' ? colors.red : tone === 'accent' ? colors.accent : colors.text;
+  return (
+    <Pressable
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      android_ripple={{ color: colors.border2 }}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        minHeight: 52,
+        borderTopWidth: first ? 0 : 1,
+        borderTopColor: colors.border,
+        backgroundColor: pressed && Platform.OS === 'ios' ? colors.bg3 : 'transparent',
+      })}
+    >
+      {icon ? <Icon name={icon} size={20} color={color} /> : null}
+      <View style={{ flex: 1 }}>
+        <Text style={{ color, fontSize: 15 }}>{label}</Text>
+        {sublabel ? (
+          <Text style={{ color: colors.text3, fontSize: 12, marginTop: 1 }}>{sublabel}</Text>
+        ) : null}
+      </View>
+      {right ?? <Icon name="chevron" size={18} color={colors.text3} />}
     </Pressable>
   );
 }
@@ -161,11 +222,14 @@ export function SegmentedControl<T extends string>({
         return (
           <Pressable
             key={o.value}
-            onPress={() => onChange(o.value)}
+            onPress={() => {
+              tap();
+              onChange(o.value);
+            }}
             style={{
               flexGrow: 1,
               flexBasis: options.length > 3 ? '30%' : undefined,
-              paddingVertical: 8,
+              paddingVertical: 9,
               paddingHorizontal: 10,
               borderRadius: radiusSm - 2,
               backgroundColor: active ? colors.accent : 'transparent',

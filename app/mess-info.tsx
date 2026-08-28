@@ -44,7 +44,7 @@ export default function MessInfo() {
         <>
           {rules?.wifi_pass ? (
             <Card>
-              <CardTitle>🔑 WiFi Password</CardTitle>
+              <CardTitle icon="wifi">WiFi Password</CardTitle>
               <View style={{ backgroundColor: colors.bg4, borderRadius: radiusSm, padding: 12 }}>
                 <Text selectable style={{ color: colors.accent, fontSize: 18, fontWeight: '800', fontFamily: 'monospace' }}>
                   {rules.wifi_pass}
@@ -54,7 +54,7 @@ export default function MessInfo() {
           ) : null}
           {rules?.bank_info ? (
             <Card>
-              <CardTitle>💳 Payment Info</CardTitle>
+              <CardTitle icon="payments">Payment Info</CardTitle>
               <Text selectable style={{ color: colors.text2, fontSize: 14, lineHeight: 21 }}>
                 {rules.bank_info}
               </Text>
@@ -62,13 +62,13 @@ export default function MessInfo() {
           ) : null}
           {rules?.rules_text ? (
             <Card>
-              <CardTitle>📜 Mess Rules</CardTitle>
+              <CardTitle icon="rules">Mess Rules</CardTitle>
               <Markdown text={rules.rules_text} />
             </Card>
           ) : null}
           {rules?.contacts ? (
             <Card>
-              <CardTitle>📞 Emergency Contacts</CardTitle>
+              <CardTitle icon="phone">Emergency Contacts</CardTitle>
               <Text selectable style={{ color: colors.text2, fontSize: 14, lineHeight: 21 }}>
                 {rules.contacts}
               </Text>

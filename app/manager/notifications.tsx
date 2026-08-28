@@ -1,19 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, RefreshControl, Alert } from 'react-native';
 import { dbGetNotifications, dbUpdateNotifStatus, type NotificationRow } from '../../src/lib/db';
-import { ScreenScroll, Card, Loading, Centered } from '../../src/components/ui';
+import { ScreenScroll, Card, Loading, Centered, EmptyState } from '../../src/components/ui';
 import { Badge } from '../../src/components/form';
+import { Icon, type IconName } from '../../src/components/Icon';
 import { fmtTk } from '../../src/core/format';
 import { useTheme, radiusSm } from '../../src/theme';
 
-const TYPE_LABEL: Record<string, { icon: string; label: string }> = {
-  meal_update: { icon: '🍽️', label: 'updated a meal' },
-  bazar_update: { icon: '🛒', label: 'updated bazar' },
-  utility_update: { icon: '⚡', label: 'recorded a utility payment' },
-  rent_update: { icon: '🏠', label: 'recorded a rent payment' },
-  meal_request: { icon: '🍽️', label: 'meal entry' },
-  bazar_request: { icon: '🛒', label: 'bazar entry' },
-  bill_payment: { icon: '💡', label: 'utility / rent entry' },
+const TYPE_LABEL: Record<string, { icon: IconName; label: string }> = {
+  meal_update: { icon: 'meals', label: 'updated a meal' },
+  bazar_update: { icon: 'bazar', label: 'updated bazar' },
+  utility_update: { icon: 'utility', label: 'recorded a utility payment' },
+  rent_update: { icon: 'rent', label: 'recorded a rent payment' },
+  meal_request: { icon: 'meals', label: 'meal entry' },
+  bazar_request: { icon: 'bazar', label: 'bazar entry' },
+  bill_payment: { icon: 'utility', label: 'utility / rent entry' },
 };
 
 export default function ManagerNotifications() {
@@ -86,25 +87,24 @@ export default function ManagerNotifications() {
       ) : null}
 
       {!rows || rows.length === 0 ? (
-        <Centered>
-          <Text style={{ fontSize: 34 }}>🔔</Text>
-          <Text style={{ color: colors.text3 }}>No member updates yet.</Text>
-        </Centered>
+        <Card>
+          <EmptyState icon="notifications" text="No member updates yet." />
+        </Card>
       ) : (
         rows.slice(0, 100).map((n) => {
-          const meta = TYPE_LABEL[n.type] || { icon: '📋', label: n.type };
+          const meta = TYPE_LABEL[n.type] || { icon: 'monthlyLog' as IconName, label: n.type };
           const isNew = n.status === 'new' || n.status === 'pending';
           const d = n.data || {};
           return (
             <Card key={n.id}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                <Text style={{ fontSize: 15 }}>{meta.icon}</Text>
+                <Icon name={meta.icon} size={16} color={colors.text2} />
                 <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{n.from_name}</Text>
                 <Text style={{ color: colors.text3, fontSize: 12 }}>{meta.label}</Text>
                 <Badge text={isNew ? 'New' : 'Seen'} tone={isNew ? 'amber' : 'green'} />
               </View>
               <Text style={{ color: colors.text3, fontSize: 11, marginBottom: 8 }}>
-                📅 {n.date} · {new Date(n.created_at).toLocaleString()}
+                {n.date} · {new Date(n.created_at).toLocaleString()}
               </Text>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {(n.type === 'meal_update' || n.type === 'meal_request') && (
@@ -119,7 +119,7 @@ export default function ManagerNotifications() {
                 )}
                 {(n.type === 'utility_update' || n.type === 'rent_update' || n.type === 'bill_payment') && (
                   <>
-                    <Chip text={d.billLabel || (n.type === 'rent_update' ? '🏠 Room Rent' : 'Utility')} />
+                    <Chip text={d.billLabel || (n.type === 'rent_update' ? 'Room Rent' : 'Utility')} />
                     <Text style={{ color: colors.green, fontWeight: '700' }}>{fmtTk(Number(d.amount || 0))}</Text>
                     {d.monthName ? <Chip text={`${d.monthName} ${d.year || ''}`} /> : null}
                   </>

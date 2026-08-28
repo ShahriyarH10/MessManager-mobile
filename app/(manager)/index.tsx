@@ -135,21 +135,21 @@ export default function ManagerDashboard() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.accent} />}
     >
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        <StatCard label="🍽️ Total meals" value={v.totalMeals} sub={`${v.daysLogged} days logged`} accent={colors.accent} />
-        <StatCard label="📊 Meal rate" value={fmtTk(v.mealRate)} sub={`${fmtTk(v.totalBazar)} ÷ ${v.totalMeals}`} accent={colors.blue} />
-        <StatCard label="🛒 Total bazar" value={fmtTk(v.totalBazar)} sub={`${v.topBazar.length} contributors`} accent={colors.green} />
-        <StatCard label="📅 Days logged" value={`${v.daysLogged}/${v.daysGone}`} sub="this month" accent={colors.text3} />
+        <StatCard label="Total meals" value={v.totalMeals} sub={`${v.daysLogged} days logged`} accent={colors.accent} />
+        <StatCard label="Meal rate" value={fmtTk(v.mealRate)} sub={`${fmtTk(v.totalBazar)} / ${v.totalMeals}`} accent={colors.blue} />
+        <StatCard label="Total bazar" value={fmtTk(v.totalBazar)} sub={`${v.topBazar.length} contributors`} accent={colors.green} />
+        <StatCard label="Days logged" value={`${v.daysLogged}/${v.daysGone}`} sub="this month" accent={colors.text3} />
       </View>
 
       <Card>
         <CardTitle>Collection progress — {v.monthLabel}</CardTitle>
-        <ProgressRow label="🏠 Rent" paid={v.rentPaid} total={v.rentDue} pct={v.rentPct} color={colors.amber} />
+        <ProgressRow label="Rent" paid={v.rentPaid} total={v.rentDue} pct={v.rentPct} color={colors.amber} />
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, marginBottom: 12 }}>
           {v.rentPaidCount > 0 ? <Badge text={`✓ ${v.rentPaidCount} paid`} tone="green" /> : null}
           {v.rentPartCount > 0 ? <Badge text={`~ ${v.rentPartCount} partial`} tone="amber" /> : null}
           {v.rentDueCount > 0 ? <Badge text={`! ${v.rentDueCount} due`} tone="red" /> : null}
         </View>
-        <ProgressRow label="⚡ Utility" paid={v.utilPaid} total={v.totalUtil} pct={v.utilPct} color={colors.purple} />
+        <ProgressRow label="Utility" paid={v.utilPaid} total={v.totalUtil} pct={v.utilPct} color={colors.purple} />
       </Card>
 
       <Card>
@@ -206,7 +206,7 @@ export default function ManagerDashboard() {
 
       {v.topBazar.length > 0 ? (
         <Card>
-          <CardTitle>🛒 Bazar leaders — {v.monthLabel}</CardTitle>
+          <CardTitle icon="bazar">Bazar leaders · {v.monthLabel}</CardTitle>
           {v.topBazar.map(([name, amt], i) => {
             const col = avatarCol(i);
             return (
@@ -231,7 +231,7 @@ export default function ManagerDashboard() {
 
       {v.rentEntries.length > 0 ? (
         <Card>
-          <CardTitle>🏠 Rent status — {v.monthLabel}</CardTitle>
+          <CardTitle icon="rent">Rent status · {v.monthLabel}</CardTitle>
           {v.rentEntries.map((e) => {
             const paid = Number(e.paid || 0);
             const due = Number(e.rent || 0);
@@ -256,7 +256,7 @@ export default function ManagerDashboard() {
 
       {v.daysLogged > 0 ? (
         <Card>
-          <CardTitle>👥 Member meal share — {v.monthLabel}</CardTitle>
+          <CardTitle icon="members">Member meal share · {v.monthLabel}</CardTitle>
           {v.members.map((m, i) => {
             const val = round2(v.memMeals[m.name] || 0);
             const col = avatarCol(i);

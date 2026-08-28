@@ -1,6 +1,6 @@
 /**
- * Collect Payment data + save — ported from loadCollectMonth / saveCollectRow
- * in js/manager/collect.js.
+ * Collect Payment data + save — ported from loadCollectMonth / saveCollectRow /
+ * saveChangeRow / saveCreditRow in js/manager/collect.js.
  */
 import {
   dbGetMeals,
@@ -14,7 +14,7 @@ import {
   dbUpsertRent,
   logAudit,
 } from './db';
-import { round2, monthKey, previousMonthFromKey } from '../core/format';
+import { round2, monthKey, previousMonthFromKey, nextMonth } from '../core/format';
 import { calcMemberSettlement, calcPrevDueForMember } from '../core/settlement';
 import { computeSplit, type Split } from '../core/collect';
 import type { Member } from '../core/types';
@@ -23,31 +23,49 @@ export type CollectRow = {
   id: string;
   name: string;
   phone?: string;
-  mealRem: number; // mealCost - bazar - mealPaid  (can be negative = surplus)
+  mealRem: number;
   utilRem: number;
   rentRem: number;
   prevDue: number;
   netPayable: number;
-  total: number; // netPayable + prevDue (what to collect)
+  total: number;
   messCredit: number;
+  creditPaid: number;
+  /** overpayment persisted this month, not yet returned/carried */
+  pendingChange: number;
+  /** change already carried to next month */
+  existingChangeCredit: number;
+  /** mess-owes credit already carried to next month */
+  existingCarryCredit: number;
 };
 
-export async function loadCollectData(month: number, year: number): Promise<{
+export type CollectData = {
   key: string;
+  nextKey: string;
+  nextMonth: number;
+  nextYear: number;
   rows: CollectRow[];
-}> {
+};
+
+export async function loadCollectData(month: number, year: number): Promise<CollectData> {
   const key = monthKey(year, month);
   const prevKey = previousMonthFromKey(key).key;
-  const [members, meals, bazar, rent, utility] = await Promise.all([
+  const nx = nextMonth(month, year);
+  const [members, meals, bazar, rent, utility, utilNext] = await Promise.all([
     dbGetMembers(),
     dbGetMeals(),
     dbGetBazar(),
     dbGetRent(),
     dbGetUtility(),
+    dbGetUtilityMonth(nx.key),
   ]);
   const rentRec = rent.find((r) => r.month_key === key) ?? null;
   const utilRec = utility.find((u) => u.month_key === key) ?? null;
   const prevUtilRec = utility.find((u) => u.month_key === prevKey) ?? null;
+
+  const existingCredits = ((utilNext?.bills as any)?.mess_credit || {}) as Record<string, number>;
+  const existingChangeCredits = ((utilNext?.bills as any)?.change_credit || {}) as Record<string, number>;
+  const pendingChangeBills = ((utilRec?.bills as any)?.pending_change || {}) as Record<string, number>;
 
   const rows: CollectRow[] = members.map((m: Member) => {
     const p = calcMemberSettlement(m, meals, bazar, rentRec, utilRec, prevUtilRec, key, members);
@@ -64,10 +82,14 @@ export async function loadCollectData(month: number, year: number): Promise<{
       netPayable: p.netPayable,
       total: round2(p.netPayable + prevDue),
       messCredit: p.messCredit,
+      creditPaid: p.creditPaid || 0,
+      pendingChange: round2(Number(pendingChangeBills[m.name] || 0)),
+      existingChangeCredit: round2(Number(existingChangeCredits[m.name] || 0)),
+      existingCarryCredit: round2(Number(existingCredits[m.name] || 0)),
     };
   });
 
-  return { key, rows };
+  return { key, nextKey: nx.key, nextMonth: nx.month, nextYear: nx.year, rows };
 }
 
 export async function saveCollectRow(
@@ -83,7 +105,6 @@ export async function saveCollectRow(
   const member = members.find((m) => m.id === row.id);
   if (!member) throw new Error('Member not found');
 
-  // 1) utility_payments: paid / meal_paid / prev_due_paid
   if (allocUtil > 0 || allocMeal > 0 || allocPrevDue > 0) {
     const rec = await dbGetUtilityMonth(key);
     const bills = (rec?.bills || {}) as Record<string, unknown>;
@@ -102,7 +123,6 @@ export async function saveCollectRow(
     await dbUpsertUtility(month, year, key, bills, payments);
   }
 
-  // 2) rent
   if (allocRent > 0) {
     const rec = await dbGetRentMonth(key);
     const existing = rec?.entries || [];
@@ -122,7 +142,6 @@ export async function saveCollectRow(
     await dbUpsertRent(month, year, key, entries);
   }
 
-  // 3) persist pending change
   if (change > 0) {
     const rec = await dbGetUtilityMonth(key);
     const bills = { ...((rec?.bills || {}) as Record<string, any>) };
@@ -133,7 +152,87 @@ export async function saveCollectRow(
   }
 
   await logAudit('update', 'collect', key, `Collected ${amount} from ${member.name}`, split);
-
   const newNet = round2(row.netPayable - allocMeal - allocUtil - allocRent);
   return { ...split, newNet };
+}
+
+/**
+ * Resolve an overpayment: hand `cashNow` back, carry the rest to next month's
+ * bills.change_credit; clear this month's pending_change entry.
+ */
+export async function saveChangeRow(
+  memberName: string,
+  month: number,
+  year: number,
+  key: string,
+  nextMonthIdx: number,
+  nextYear: number,
+  nextKey: string,
+  row: CollectRow,
+  cashNowRaw: number,
+): Promise<{ cashNow: number; carry: number }> {
+  const remaining = round2(Math.max(0, row.pendingChange - row.existingChangeCredit));
+  const cashNow = round2(Math.min(Math.max(0, cashNowRaw), remaining));
+  const carry = round2(remaining - cashNow);
+
+  const nextRec = await dbGetUtilityMonth(nextKey);
+  const nextBills = { ...((nextRec?.bills || {}) as Record<string, any>) };
+  const changeCredits = { ...(nextBills.change_credit || {}) };
+  if (carry > 0) changeCredits[memberName] = carry;
+  else delete changeCredits[memberName];
+  nextBills.change_credit = changeCredits;
+  await dbUpsertUtility(nextMonthIdx, nextYear, nextKey, nextBills, nextRec?.payments || {});
+
+  const curRec = await dbGetUtilityMonth(key);
+  const curBills = { ...((curRec?.bills || {}) as Record<string, any>) };
+  const pending = { ...(curBills.pending_change || {}) };
+  delete pending[memberName];
+  if (Object.keys(pending).length === 0) delete curBills.pending_change;
+  else curBills.pending_change = pending;
+  await dbUpsertUtility(month, year, key, curBills, curRec?.payments || {});
+
+  await logAudit('update', 'collect', key, `Change to ${memberName}: cash ${cashNow}, carry ${carry}`);
+  return { cashNow, carry };
+}
+
+/**
+ * Draw down a "mess owes" credit: record `cashNow` as credit_paid this month,
+ * carry the rest to next month's bills.mess_credit.
+ */
+export async function saveCreditRow(
+  memberName: string,
+  month: number,
+  year: number,
+  key: string,
+  nextMonthIdx: number,
+  nextYear: number,
+  nextKey: string,
+  row: CollectRow,
+  cashNowRaw: number,
+): Promise<{ cashNow: number; carry: number }> {
+  const messOwes = round2(Math.abs(row.netPayable));
+  const remaining = round2(Math.max(0, messOwes - row.existingCarryCredit));
+  const cashNow = round2(Math.min(Math.max(0, cashNowRaw), remaining));
+  const carry = round2(remaining - cashNow);
+
+  if (cashNow > 0) {
+    const curRec = await dbGetUtilityMonth(key);
+    const curBills = (curRec?.bills || {}) as Record<string, unknown>;
+    const payments = { ...(curRec?.payments || {}) };
+    const cur = { ...(payments[memberName] || {}) };
+    cur.credit_paid = round2(Number(cur.credit_paid || 0) + cashNow);
+    payments[memberName] = cur;
+    await dbUpsertUtility(month, year, key, curBills, payments);
+  }
+
+  const nextRec = await dbGetUtilityMonth(nextKey);
+  const nextBills = { ...((nextRec?.bills || {}) as Record<string, any>) };
+  const credit = { ...(nextBills.mess_credit || {}) };
+  if (carry > 0) credit[memberName] = carry;
+  else delete credit[memberName];
+  nextBills.mess_credit = credit;
+  await dbUpsertUtility(nextMonthIdx, nextYear, nextKey, nextBills, nextRec?.payments || {});
+
+  await logAudit('update', 'collect', key, `Mess-owes to ${memberName}: cash ${cashNow}, carry ${carry}`);
+  return { cashNow, carry };
 }

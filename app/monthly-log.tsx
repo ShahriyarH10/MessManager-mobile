@@ -206,7 +206,7 @@ export default function MonthlyLog() {
                   <Chip label="Rent" value={fmtTk(p.roomRent)} color={colors.blue} />
                   <Chip label="Bazar" value={fmtTk(p.memberBazar)} color={colors.green} />
                   <Chip label="Paid" value={fmtTk(round2(p.utilityPaid + p.roomRentPaid + p.mealPaid))} color={colors.green} />
-                  {p.messCredit > 0 ? <Chip label="↩ Carry" value={fmtTk(p.messCredit)} color={colors.blue} /> : null}
+                  {p.messCredit > 0 ? <Chip label="Carry fwd" value={fmtTk(p.messCredit)} color={colors.blue} /> : null}
                   {p.prevDue > 0 ? <Chip label="Prev due" value={fmtTk(p.prevDue)} color={colors.red} /> : null}
                 </View>
               </View>
