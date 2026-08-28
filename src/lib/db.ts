@@ -1,17 +1,22 @@
 /**
- * Database access — ported from js/core/db.js.
+ * Database access — ported from js/core/db.js and js/core/db-ext.js.
  *
  * Note: the web app's `sanitize()` HTML-escapes every string on read (XSS
  * defense for innerHTML rendering). React Native has no HTML sink, and escaping
- * would corrupt displayed names ("A & B" -> "A &amp; B"), so we deliberately
- * skip it here.
+ * would corrupt displayed names ("A & B" -> "A &amp; B"), so we skip it here.
  */
 import { getClient } from './supabase';
-import { getMessId } from './session';
-import type { Member, MealRow, BazarRow, RentRecord, UtilityRecord } from '../core/types';
-
-type TimeTable = 'meals' | 'bazar';
-type KeyedTable = 'rent';
+import { getMessId, getSession } from './session';
+import { MONTHS } from '../core/format';
+import type {
+  Member,
+  MealRow,
+  BazarRow,
+  RentRecord,
+  RentEntry,
+  UtilityRecord,
+  UtilityPayment,
+} from '../core/types';
 
 function orderColumn(table: string): string {
   if (table === 'meals' || table === 'bazar') return 'date';
@@ -55,7 +60,6 @@ export async function dbGetMembers(): Promise<Member[]> {
   return (data as Member[]) || [];
 }
 
-/** All utility_payments rows for the mess (the web app queries this directly). */
 export async function dbGetUtility(): Promise<UtilityRecord[]> {
   const { data, error } = await getClient()
     .from('utility_payments')
@@ -63,6 +67,28 @@ export async function dbGetUtility(): Promise<UtilityRecord[]> {
     .eq('mess_id', getMessId());
   if (error) throw error;
   return (data as UtilityRecord[]) || [];
+}
+
+export async function dbGetMealByDate(date: string): Promise<MealRow | null> {
+  const { data, error } = await getClient()
+    .from('meals')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .eq('date', date)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as MealRow) || null;
+}
+
+export async function dbGetBazarByDate(date: string): Promise<BazarRow | null> {
+  const { data, error } = await getClient()
+    .from('bazar')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .eq('date', date)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as BazarRow) || null;
 }
 
 export async function dbGetRentMonth(key: string): Promise<RentRecord | null> {
@@ -87,17 +113,243 @@ export async function dbGetUtilityMonth(key: string): Promise<UtilityRecord | nu
   return (data as UtilityRecord) || null;
 }
 
-export async function dbGetAnnouncements() {
+/* ── Writes ─────────────────────────────────────────────── */
+
+export async function dbUpsertMeals(date: string, meals: Record<string, number>): Promise<void> {
+  const { error } = await getClient()
+    .from('meals')
+    .upsert({ mess_id: getMessId(), date, meals }, { onConflict: 'mess_id,date' });
+  if (error) throw error;
+}
+
+export async function dbUpsertBazar(date: string, bazar: Record<string, number>): Promise<void> {
+  const ex = await dbGetBazarByDate(date);
+  const { error } = await getClient()
+    .from('bazar')
+    .upsert(
+      { mess_id: getMessId(), date, bazar, utility: ex?.utility || {} },
+      { onConflict: 'mess_id,date' },
+    );
+  if (error) throw error;
+}
+
+export async function dbUpsertRent(
+  month: number,
+  year: number,
+  key: string,
+  entries: RentEntry[],
+): Promise<void> {
+  const { error } = await getClient()
+    .from('rent')
+    .upsert(
+      { mess_id: getMessId(), month_key: key, month, year, month_name: MONTHS[month], entries },
+      { onConflict: 'mess_id,month_key' },
+    );
+  if (error) throw error;
+}
+
+export async function dbUpsertUtility(
+  month: number,
+  year: number,
+  key: string,
+  bills: Record<string, unknown>,
+  payments: Record<string, UtilityPayment>,
+): Promise<void> {
+  const { error } = await getClient()
+    .from('utility_payments')
+    .upsert(
+      { mess_id: getMessId(), month_key: key, month, year, month_name: MONTHS[month], bills, payments },
+      { onConflict: 'mess_id,month_key' },
+    );
+  if (error) throw error;
+}
+
+/* ── Notifications ──────────────────────────────────────── */
+
+export type NotificationRow = {
+  id: string;
+  type: string;
+  from_id: string | null;
+  from_name: string;
+  date: string;
+  data: any;
+  note: string;
+  status: string;
+  created_at: string;
+};
+
+export async function dbSaveNotification(row: {
+  type: string;
+  date: string;
+  data: any;
+  note?: string;
+  status?: string;
+}): Promise<void> {
+  const u = getSession()?.user;
+  const { error } = await getClient().from('notifications').insert({
+    mess_id: getMessId(),
+    type: row.type,
+    from_id: u?.memberId ?? null,
+    from_name: u?.name ?? 'Member',
+    date: row.date,
+    data: row.data,
+    note: row.note || '',
+    status: row.status || 'new',
+  });
+  if (error) throw error;
+}
+
+export async function dbGetNotifications(statusFilter?: string): Promise<NotificationRow[]> {
+  let q = getClient()
+    .from('notifications')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .order('created_at', { ascending: false });
+  if (statusFilter) q = q.eq('status', statusFilter);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as NotificationRow[]) || [];
+}
+
+export async function dbUpdateNotifStatus(id: string, status: string): Promise<void> {
+  const { error } = await getClient().from('notifications').update({ status }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function getPendingCount(): Promise<number> {
+  const { count, error } = await getClient()
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('mess_id', getMessId())
+    .in('status', ['new', 'pending']);
+  if (error) return 0;
+  return count || 0;
+}
+
+/* ── Announcements ──────────────────────────────────────── */
+
+export type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  author: string;
+  pinned: boolean;
+  created_at: string;
+};
+
+export async function dbGetAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await getClient()
     .from('announcements')
     .select('*')
     .eq('mess_id', getMessId())
+    .order('pinned', { ascending: false })
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data || [];
+  return (data as Announcement[]) || [];
 }
 
-/** Connectivity check — used to show the "Connected" indicator. */
+/* ── Mess Rules ─────────────────────────────────────────── */
+
+export type MessRules = {
+  wifi_pass?: string;
+  bank_info?: string;
+  rules_text?: string;
+  contacts?: string;
+};
+
+export async function dbGetMessRules(): Promise<MessRules | null> {
+  const { data, error } = await getClient()
+    .from('mess_rules')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .maybeSingle();
+  if (error) throw error;
+  return (data as MessRules) || null;
+}
+
+/* ── Broadcasts ─────────────────────────────────────────── */
+
+export type Broadcast = {
+  id: string;
+  message: string;
+  priority: string;
+  pinned: boolean;
+  author: string;
+  expires_at: string | null;
+  created_at: string;
+};
+
+/** All broadcasts (pinned first). Filter expired at the call site for members. */
+export async function dbGetBroadcastsRaw(): Promise<Broadcast[]> {
+  const { data, error } = await getClient()
+    .from('broadcasts')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (error) throw error;
+  return (data as Broadcast[]) || [];
+}
+
+export async function dbGetActiveBroadcasts(): Promise<Broadcast[]> {
+  const all = await dbGetBroadcastsRaw();
+  const now = Date.now();
+  return all.filter((b) => !b.expires_at || new Date(b.expires_at).getTime() > now);
+}
+
+/* ── Meal attendance (absence toggle) ───────────────────── */
+
+export type AttendanceRow = {
+  id: string;
+  member_id: string;
+  date: string;
+  day_meal: boolean;
+  night_meal: boolean;
+};
+
+export async function dbGetMyUpcomingAbsences(memberId: string, fromDate: string): Promise<AttendanceRow[]> {
+  const { data, error } = await getClient()
+    .from('meal_attendance')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .eq('member_id', memberId)
+    .gte('date', fromDate)
+    .order('date', { ascending: true })
+    .limit(60);
+  if (error) throw error;
+  return ((data as AttendanceRow[]) || []).filter((a) => !a.day_meal || !a.night_meal);
+}
+
+export async function dbSetAttendance(
+  memberId: string,
+  date: string,
+  dayMeal: boolean,
+  nightMeal: boolean,
+): Promise<void> {
+  const { error } = await getClient()
+    .from('meal_attendance')
+    .upsert(
+      {
+        mess_id: getMessId(),
+        member_id: memberId,
+        date,
+        day_meal: dayMeal,
+        night_meal: nightMeal,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'mess_id,member_id,date' },
+    );
+  if (error) throw error;
+}
+
+export async function dbDeleteAttendance(id: string): Promise<void> {
+  const { error } = await getClient().from('meal_attendance').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/* ── Connectivity ──────────────────────────────────────── */
+
 export async function checkDb(): Promise<boolean> {
   try {
     const { error } = await getClient().from('messes').select('id', { count: 'exact', head: true });

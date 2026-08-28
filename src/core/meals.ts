@@ -58,6 +58,39 @@ export function mealMemberTotal(mObj: MealObj, memberName: string): number {
   return 0;
 }
 
+/** Per-day meal calendar for one member in one month (key "YYYY-MM"). */
+export function memberMonthCalendar(
+  memberName: string,
+  allMeals: { date: string; meals: MealObj }[],
+  key: string,
+): {
+  days: { day: number; total: number; dayMeals: number; nightMeals: number; hasMeal: boolean }[];
+  total: number;
+  activeDays: number;
+} {
+  const year = Number(key.slice(0, 4));
+  const month = Number(key.slice(5, 7)) - 1;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const byDate: Record<string, { day: number; night: number; total: number }> = {};
+  (allMeals || [])
+    .filter((r) => String(r.date || '').startsWith(key))
+    .forEach((r) => {
+      byDate[String(r.date).slice(8, 10)] = mealPartsFromObj(r.meals || {}, memberName);
+    });
+  let total = 0;
+  let activeDays = 0;
+  const days = Array.from({ length: daysInMonth }, (_, i) => {
+    const dd = String(i + 1).padStart(2, '0');
+    const e = byDate[dd] || { day: 0, night: 0, total: 0 };
+    if (e.total > 0) {
+      activeDays++;
+      total += e.total;
+    }
+    return { day: i + 1, total: e.total, dayMeals: e.day, nightMeals: e.night, hasMeal: e.total > 0 };
+  });
+  return { days, total: round2(total), activeDays };
+}
+
 /** Day/night/total split for a member from a meal-row object. */
 export function mealPartsFromObj(
   mealsObj: MealObj,

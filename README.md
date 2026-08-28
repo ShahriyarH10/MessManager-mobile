@@ -8,18 +8,34 @@ Web app lives in `../Mess-Managements git`.
 
 ---
 
-## Status
+## Status — the **member app is feature-complete**
 
 | Area | State |
 |---|---|
 | Expo SDK 54 (matches store Expo Go) | ✅ |
-| Auth (member login, PBKDF2, session JWT) | ✅ working |
-| Shared settlement logic (ported from `js/core/helpers.js`) | ✅ ported |
-| Member dashboard (net payable, breakdown, mess stats, today, who-ate) | ✅ first screen |
-| Meal log / Bazar log / Profile detail | 🔜 stubs |
-| Manager screens | 🔜 not started |
-| PDF export (receipts, settlement) | 🔜 not started (`expo-print`) |
+| Auth — member/manager login, PBKDF2, session JWT, change password | ✅ |
+| Shared settlement logic (port of `js/core/helpers.js` + `profiles.js`) | ✅ + parity test |
+| **Dashboard** — net payable, charge breakdown, mess stats, today, who-ate | ✅ |
+| **Meal Log** — direct meal entry + notify, absence range, upcoming absences, month calendar | ✅ |
+| **Bazar Log** — direct bazar entry + notify, month total, history | ✅ |
+| **Utility/Rent** — record rent/utility payment + notify, payment history | ✅ |
+| **My Profile** — period selector, balances, stats, meal history, recent months, "What I Owe" | ✅ |
+| **Monthly Log** — full per-member settlement report, any month | ✅ |
+| **Messages** — broadcasts + announcements feed, unread tracking | ✅ |
+| **Mess Info** — WiFi / payment / rules (Markdown) / contacts | ✅ |
+| Manager screens (entry, collect, approvals, members, reports) | 🔜 next phase |
+| PDF export (receipts, settlement) | 🔜 next phase (`expo-print`) |
 | Superadmin | ❌ not planned for mobile |
+
+Managers can sign in and use every member screen today; manager-only tools are
+the next phase.
+
+### Tests
+
+```bash
+npm run typecheck        # tsc --noEmit
+npm run test:settlement  # settlement-formula parity check (pure Node)
+```
 
 ---
 
@@ -48,52 +64,65 @@ app/                       expo-router screens
   index.tsx                auth-gated redirect
   login.tsx
   (tabs)/
-    _layout.tsx            bottom tabs + auth guard
-    index.tsx              Member dashboard  ← main ported screen
-    meals.tsx bazar.tsx profile.tsx   stubs
+    _layout.tsx            bottom tabs (Dashboard / Meals / Bazar / Utility-Rent / More)
+    index.tsx              Dashboard
+    meals.tsx              Meal Log  (entry + absence range + month calendar)
+    bazar.tsx              Bazar Log
+    payments.tsx           Utility & Rent  (record payment + history)
+    more.tsx               menu -> the screens below
+  profile.tsx              My Profile  (period selector, What I Owe)
+  monthly-log.tsx          Monthly Log  (per-member settlement, any month)
+  messages.tsx             Messages  (broadcasts + announcements)
+  mess-info.tsx            Mess Info  (WiFi / payment / rules / contacts)
+  change-password.tsx
 
 src/
-  core/                    PURE, portable logic — mirrors js/core/*
-    format.ts              fmtTk, round2, month helpers  (from helpers.js)
-    meals.ts               mealRowTotal / mealMemberTotal / mealPartsFromObj
-    settlement.ts          calcMemberSettlement / calcPrevDueForMember
-                           (only change: `members` is a param, not a global)
+  core/                    PURE, portable logic — mirrors js/core/* + profiles.js
+    format.ts              fmtTk, round2, month helpers
+    meals.ts               meal totals + memberMonthCalendar
+    settlement.ts          calcMemberSettlement / calcPrevDueForMember  (members is a param)
+    memberStats.ts         getMemberStats / getUtilityBalance / getPrevMonthMealBalance
+    period.ts              profile period filtering (getFilteredData …)
     types.ts               DB row shapes (from database.sql)
   lib/
     config.ts              Supabase URL/key, TTLs
-    crypto.ts              PBKDF2-SHA-256 via @noble/hashes.
-                           Verified byte-identical to the browser's
-                           crypto.subtle output → hashes are cross-compatible.
-    supabase.ts            anon client + mess-scoped getClient()  (from config.js)
-    session.ts             AsyncStorage session   (from helpers.js localStorage)
-    auth.ts                login() / signSessionJWT()   (from auth.js)
-    db.ts                  dbGetAll etc.   (from db.js; sanitize() dropped — no HTML sink)
+    crypto.ts              PBKDF2-SHA-256 via @noble/hashes — byte-identical to
+                           the browser's crypto.subtle, so hashes cross-verify
+    supabase.ts            anon client + mess-scoped getClient()
+    session.ts             AsyncStorage session
+    auth.ts                login / signSessionJWT / changePassword
+    db.ts                  all reads + writes  (from db.js + db-ext.js; no sanitize())
+    memberActions.ts       saveMyMeal / saveMyBazar / saveMyPayment / absence range
+    announceRead.ts        unread-message tracking
   context/AuthContext.tsx
-  hooks/useMemberDashboard.ts   data load + settlement calc for the dashboard
-  components/ui.tsx        Card, StatCard, ScreenScroll, …
+  hooks/                   useMessData, useMemberDashboard
+  components/              ui.tsx, form.tsx (Button/Field/DateField/MonthYearField/…), Markdown.tsx
   theme.ts                 tokens from css/01-variables.css + avatar palette
+scripts/settlement-parity.ts   npm run test:settlement
 ```
 
 ### Keeping logic in sync with the web app
 
-`src/core/*` is a hand-port of `js/core/*`. When the settlement formula changes
-on web, mirror it here. The functions are pure and deterministic — the intent is
-to add a Jest suite with shared fixtures so drift is caught automatically
-(**TODO**, next task).
+`src/core/*` is a hand-port of `js/core/*` + `js/manager/profiles.js`. When the
+settlement formula changes on web, mirror it here and update
+`scripts/settlement-parity.ts`. `npm run test:settlement` runs it in plain Node.
 
 ---
 
-## Known gaps / next steps
+## Next phase — manager mode
 
-1. **Settlement parity tests** — fixture-based Jest suite comparing this port to
-   known web outputs.
-2. **Meal / Bazar logs** — port `js/member/pages.js` (absence range picker is the
-   fiddly bit).
-3. **Requests** — member meal/bazar/bill requests → `notifications` table.
-4. **Manager mode** — dashboard, entry screens, approvals.
-5. **PDF** — `expo-print` for the payment receipt and monthly settlement.
-6. **Push** — broadcasts could map to Expo push notifications.
-7. **Offline** — cache `dbGetAll` results (React Query + AsyncStorage persister).
+Everything a **member** does is built. Still to port (all manager-only):
+
+1. **Manager dashboard** — ring charts, heatmap, rent status, member comparison.
+2. **Entry screens** — meal / bazar / utility / rent (all-member grids).
+3. **Collect Payment** — the payment-allocation engine in `js/manager/collect.js`
+   (~2k lines) + printable receipt via `expo-print`.
+4. **Notifications** — approve / reject member update requests.
+5. **Members** — add / edit / remove, password reset, roles, transfer.
+6. **Reports** — Monthly Log PDF, Meal Rate Chart, Audit Log, Mess Fund.
+7. **Compose** — post announcements / broadcasts, edit Mess Rules & chores.
+8. **Push** — broadcasts → Expo push notifications.
+9. **Offline** — cache `dbGetAll` results (React Query + AsyncStorage persister).
 
 ---
 

@@ -3,7 +3,7 @@
  * Superadmin login is intentionally omitted from the mobile app for now.
  */
 import { SUPABASE_URL } from './config';
-import { anonClient, resetClientCache } from './supabase';
+import { anonClient, getClient, resetClientCache } from './supabase';
 import { comparePassword, hashPassword, isLegacyHash } from './crypto';
 import { saveSession, clearSession, type Mess, type SessionUser } from './session';
 
@@ -85,4 +85,29 @@ export async function login(
 export async function logout(): Promise<void> {
   await clearSession();
   resetClientCache();
+}
+
+/** Port of doChangePassword in js/member/dashboard.js. */
+export async function changePassword(
+  memberId: string,
+  currentPw: string,
+  newPw: string,
+): Promise<void> {
+  if (!currentPw) throw new LoginError('Enter your current password.');
+  if (!newPw || newPw.length < 6) throw new LoginError('New password must be at least 6 characters.');
+  if (newPw === currentPw) throw new LoginError('New password must be different from current.');
+
+  const { data: member } = await getClient()
+    .from('members')
+    .select('id, password')
+    .eq('id', memberId)
+    .maybeSingle();
+  if (!member) throw new LoginError('Could not verify your account.');
+
+  const ok = await comparePassword(currentPw, member.password);
+  if (!ok) throw new LoginError('Current password is incorrect.');
+
+  const newHash = await hashPassword(newPw);
+  const { error } = await getClient().from('members').update({ password: newHash }).eq('id', memberId);
+  if (error) throw new LoginError(error.message);
 }

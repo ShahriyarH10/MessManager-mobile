@@ -6,7 +6,7 @@ import { useTheme } from '../../src/theme';
 import { Loading } from '../../src/components/ui';
 
 function TabIcon({ icon, color }: { icon: string; color: ColorValue }) {
-  return <Text style={{ fontSize: 20, color }}>{icon}</Text>;
+  return <Text style={{ fontSize: 19, color }}>{icon}</Text>;
 }
 
 export default function TabsLayout() {
@@ -22,39 +22,28 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.text3,
-        tabBarStyle: {
-          backgroundColor: colors.bg1,
-          borderTopColor: colors.border,
-        },
+        tabBarStyle: { backgroundColor: colors.bg1, borderTopColor: colors.border },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => <TabIcon icon="🏠" color={color} />,
-        }}
+        options={{ title: 'Dashboard', tabBarIcon: ({ color }) => <TabIcon icon="🏠" color={color} /> }}
       />
       <Tabs.Screen
         name="meals"
-        options={{
-          title: 'Meals',
-          tabBarIcon: ({ color }) => <TabIcon icon="🍽️" color={color} />,
-        }}
+        options={{ title: 'Meals', tabBarIcon: ({ color }) => <TabIcon icon="🍽️" color={color} /> }}
       />
       <Tabs.Screen
         name="bazar"
-        options={{
-          title: 'Bazar',
-          tabBarIcon: ({ color }) => <TabIcon icon="🛒" color={color} />,
-        }}
+        options={{ title: 'Bazar', tabBarIcon: ({ color }) => <TabIcon icon="🛒" color={color} /> }}
       />
       <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} />,
-        }}
+        name="payments"
+        options={{ title: 'Utility/Rent', tabBarIcon: ({ color }) => <TabIcon icon="🧾" color={color} /> }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{ title: 'More', tabBarIcon: ({ color }) => <TabIcon icon="⋯" color={color} /> }}
       />
     </Tabs>
   );
