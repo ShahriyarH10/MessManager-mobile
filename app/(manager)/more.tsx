@@ -8,9 +8,11 @@ import { initials } from '../../src/core/format';
 
 const LINKS: { icon: string; label: string; href: string }[] = [
   { icon: '📋', label: 'Monthly Log', href: '/monthly-log' },
+  { icon: '📊', label: 'Analytics', href: '/manager/rate-chart' },
+  { icon: '💵', label: 'Mess Fund', href: '/manager/mess-fund' },
   { icon: '🧾', label: 'Audit Log', href: '/manager/audit-log' },
-  { icon: '📢', label: 'Messages', href: '/messages' },
-  { icon: '📌', label: 'Mess Info', href: '/mess-info' },
+  { icon: '📢', label: 'Messages & Broadcasts', href: '/manager/messages' },
+  { icon: '📌', label: 'Mess Rules & Info', href: '/manager/mess-rules' },
   { icon: '🔑', label: 'Change Password', href: '/change-password' },
 ];
 

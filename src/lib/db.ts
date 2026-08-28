@@ -301,6 +301,36 @@ export async function dbGetAnnouncements(): Promise<Announcement[]> {
   return (data as Announcement[]) || [];
 }
 
+export async function dbSaveAnnouncement(row: {
+  id?: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+}): Promise<void> {
+  const u = getSession()?.user;
+  if (row.id) {
+    const { error } = await getClient()
+      .from('announcements')
+      .update({ title: row.title, body: row.body, pinned: row.pinned })
+      .eq('id', row.id);
+    if (error) throw error;
+  } else {
+    const { error } = await getClient().from('announcements').insert({
+      mess_id: getMessId(),
+      title: row.title,
+      body: row.body,
+      pinned: row.pinned || false,
+      author: u?.name ?? 'Manager',
+    });
+    if (error) throw error;
+  }
+}
+
+export async function dbDeleteAnnouncement(id: string): Promise<void> {
+  const { error } = await getClient().from('announcements').delete().eq('id', id);
+  if (error) throw error;
+}
+
 /* ── Mess Rules ─────────────────────────────────────────── */
 
 export type MessRules = {
@@ -318,6 +348,23 @@ export async function dbGetMessRules(): Promise<MessRules | null> {
     .maybeSingle();
   if (error) throw error;
   return (data as MessRules) || null;
+}
+
+export async function dbSaveMessRules(rules: MessRules): Promise<void> {
+  const { error } = await getClient()
+    .from('mess_rules')
+    .upsert(
+      {
+        mess_id: getMessId(),
+        wifi_pass: rules.wifi_pass || '',
+        bank_info: rules.bank_info || '',
+        rules_text: rules.rules_text || '',
+        contacts: rules.contacts || '',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'mess_id' },
+    );
+  if (error) throw error;
 }
 
 /* ── Broadcasts ─────────────────────────────────────────── */
@@ -349,6 +396,93 @@ export async function dbGetActiveBroadcasts(): Promise<Broadcast[]> {
   const all = await dbGetBroadcastsRaw();
   const now = Date.now();
   return all.filter((b) => !b.expires_at || new Date(b.expires_at).getTime() > now);
+}
+
+export async function dbPostBroadcast(
+  message: string,
+  priority: string,
+  pinned: boolean,
+  expiresInHours: number | null,
+): Promise<void> {
+  const u = getSession()?.user;
+  const { error } = await getClient().from('broadcasts').insert({
+    mess_id: getMessId(),
+    message,
+    priority,
+    pinned,
+    author: u?.name ?? 'Manager',
+    expires_at: expiresInHours ? new Date(Date.now() + expiresInHours * 3600000).toISOString() : null,
+  });
+  if (error) throw error;
+}
+
+export async function dbDeleteBroadcast(id: string): Promise<void> {
+  const { error } = await getClient().from('broadcasts').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function dbSetBroadcastPinned(id: string, pinned: boolean): Promise<void> {
+  const { error } = await getClient().from('broadcasts').update({ pinned }).eq('id', id);
+  if (error) throw error;
+}
+
+/* ── Mess fund (stored in utility_payments.bills.fund_entries) ── */
+
+export type FundEntry = {
+  id: string;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  date: string;
+  note: string;
+  actor: string;
+  month_key: string;
+};
+
+export async function dbGetFundEntries(): Promise<FundEntry[]> {
+  const { data, error } = await getClient()
+    .from('utility_payments')
+    .select('bills,month_key')
+    .eq('mess_id', getMessId())
+    .order('month_key', { ascending: false });
+  if (error) throw error;
+  const out: FundEntry[] = [];
+  (data || []).forEach((row: any) => {
+    ((row.bills?.fund_entries as any[]) || []).forEach((e) => out.push({ ...e, month_key: row.month_key }));
+  });
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export async function dbAddFundEntry(entry: {
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  date: string;
+  note: string;
+}): Promise<void> {
+  const key = entry.date.slice(0, 7);
+  const [y, m] = key.split('-').map(Number);
+  const rec = await dbGetUtilityMonth(key);
+  const bills = { ...((rec?.bills || {}) as Record<string, any>) };
+  const entries = [...(bills.fund_entries || [])];
+  entries.push({
+    id: Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+    type: entry.type,
+    amount: entry.amount,
+    date: entry.date,
+    note: entry.note,
+    actor: getSession()?.user.name ?? 'Manager',
+    created: new Date().toISOString(),
+  });
+  bills.fund_entries = entries;
+  await dbUpsertUtility(m - 1, y, key, bills, rec?.payments || {});
+}
+
+export async function dbDeleteFundEntry(monthKey: string, entryId: string): Promise<void> {
+  const [y, m] = monthKey.split('-').map(Number);
+  const rec = await dbGetUtilityMonth(monthKey);
+  if (!rec) return;
+  const bills = { ...((rec.bills || {}) as Record<string, any>) };
+  bills.fund_entries = (bills.fund_entries || []).filter((e: any) => e.id !== entryId);
+  await dbUpsertUtility(m - 1, y, monthKey, bills, rec.payments || {});
 }
 
 /* ── Meal attendance (absence toggle) ───────────────────── */

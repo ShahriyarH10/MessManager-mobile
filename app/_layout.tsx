@@ -41,6 +41,10 @@ function RootStack() {
         <Stack.Screen name="manager/notifications" options={{ ...stackScreen, title: 'Member Updates' }} />
         <Stack.Screen name="manager/audit-log" options={{ ...stackScreen, title: 'Audit Log' }} />
         <Stack.Screen name="manager/member-edit" options={{ ...stackScreen, title: 'Member' }} />
+        <Stack.Screen name="manager/rate-chart" options={{ ...stackScreen, title: 'Analytics' }} />
+        <Stack.Screen name="manager/mess-fund" options={{ ...stackScreen, title: 'Mess Fund' }} />
+        <Stack.Screen name="manager/messages" options={{ ...stackScreen, title: 'Messages' }} />
+        <Stack.Screen name="manager/mess-rules" options={{ ...stackScreen, title: 'Mess Rules' }} />
       </Stack>
     </>
   );

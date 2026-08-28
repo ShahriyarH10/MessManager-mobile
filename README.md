@@ -31,9 +31,15 @@ Web app lives in `../Mess-Managements git`.
 | **Manager — Room Rent** | per-member due/paid/status/notes, auto-status, mark-all-paid, history |
 | **Manager — Member Updates** | activity feed of member self-service edits, mark seen |
 | **Manager — Audit Log** | category filter + search + pagination |
-| Manager — Collect Payment + receipt | 🔜 next phase |
-| Manager — Members CRUD / roles | 🔜 next phase (read-only roster for now) |
-| Manager — Monthly Log PDF, Meal Rate Chart, Mess Fund, compose | 🔜 next phase |
+| **Manager — Collect Payment** | waterfall split (prev due→rent→utility→meal), live preview, receipt (text + PDF share) |
+| **Manager — Members** | add / edit / remove, password reset (via edit), promote/demote sub-manager, transfer manager role |
+| **Manager — Analytics** | meal-rate & bazar bar charts by month, member meal-share |
+| **Manager — Mess Fund** | deposits / withdrawals, running balance, history |
+| **Manager — Messages** | post broadcasts (priority / expiry / pin) and announcements, pin/unpin, delete |
+| **Manager — Mess Rules** | edit WiFi / payment / Markdown rules / contacts with live preview |
+| **Monthly Log** | now has "Share PDF" |
+| Manager — Chore roster, absence calendar, month-close lock | 🔜 remaining |
+| Collect — "return change" / "mess owes" drawdown flows | 🔜 remaining (pending change is persisted) |
 | Superadmin | ❌ not planned for mobile |
 
 ### Tests
@@ -115,20 +121,17 @@ settlement formula changes on web, mirror it here and update
 
 ---
 
-## Next phase — manager mode
+## Remaining
 
-Everything a **member** does is built. Still to port (all manager-only):
-
-1. **Manager dashboard** — ring charts, heatmap, rent status, member comparison.
-2. **Entry screens** — meal / bazar / utility / rent (all-member grids).
-3. **Collect Payment** — the payment-allocation engine in `js/manager/collect.js`
-   (~2k lines) + printable receipt via `expo-print`.
-4. **Notifications** — approve / reject member update requests.
-5. **Members** — add / edit / remove, password reset, roles, transfer.
-6. **Reports** — Monthly Log PDF, Meal Rate Chart, Audit Log, Mess Fund.
-7. **Compose** — post announcements / broadcasts, edit Mess Rules & chores.
-8. **Push** — broadcasts → Expo push notifications.
-9. **Offline** — cache `dbGetAll` results (React Query + AsyncStorage persister).
+- **Chore roster** — view + manager assign/edit (`chores` table; DB shape already
+  in `js/core/db.js`).
+- **Absence calendar** — manager month grid of who's absent (`meal_attendance`).
+- **Month-close lock** — toggle `utility_payments.bills.locked` (writes already
+  respect it via `isMonthLocked`).
+- **Collect extras** — the "return change" and "mess owes" drawdown tables from
+  `collect.js`; overpayment is already persisted to `bills.pending_change`.
+- **Push** — broadcasts → Expo push notifications (needs a dev build).
+- **Offline** — cache `dbGetAll` (React Query + AsyncStorage persister).
 
 ---
 
