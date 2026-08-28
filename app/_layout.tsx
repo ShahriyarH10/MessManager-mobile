@@ -32,7 +32,7 @@ function RootStack() {
         <Stack.Screen name="(manager)" />
         <Stack.Screen name="profile" options={{ ...stackScreen, title: 'My Profile' }} />
         <Stack.Screen name="monthly-log" options={{ ...stackScreen, title: 'Monthly Log' }} />
-        <Stack.Screen name="messages" options={{ ...stackScreen, title: 'Messages' }} />
+        <Stack.Screen name="messages" options={{ ...stackScreen, title: 'Broadcasts' }} />
         <Stack.Screen name="mess-info" options={{ ...stackScreen, title: 'Mess Info' }} />
         <Stack.Screen name="change-password" options={{ ...stackScreen, title: 'Change Password' }} />
         <Stack.Screen name="manager/meal-entry" options={{ ...stackScreen, title: 'Meal Entry' }} />
@@ -44,7 +44,7 @@ function RootStack() {
         <Stack.Screen name="manager/member-edit" options={{ ...stackScreen, title: 'Member' }} />
         <Stack.Screen name="manager/rate-chart" options={{ ...stackScreen, title: 'Analytics' }} />
         <Stack.Screen name="manager/mess-fund" options={{ ...stackScreen, title: 'Mess Fund' }} />
-        <Stack.Screen name="manager/messages" options={{ ...stackScreen, title: 'Messages' }} />
+        <Stack.Screen name="manager/messages" options={{ ...stackScreen, title: 'Broadcasts' }} />
         <Stack.Screen name="manager/mess-rules" options={{ ...stackScreen, title: 'Mess Rules' }} />
         <Stack.Screen name="manager/month-lock" options={{ ...stackScreen, title: 'Month Close' }} />
         <Stack.Screen name="manager/absence-calendar" options={{ ...stackScreen, title: 'Absence Calendar' }} />
