@@ -23,12 +23,18 @@ Web app lives in `../Mess-Managements git`.
 | **Monthly Log** — full per-member settlement report, any month | ✅ |
 | **Messages** — broadcasts + announcements feed, unread tracking | ✅ |
 | **Mess Info** — WiFi / payment / rules (Markdown) / contacts | ✅ |
-| Manager screens (entry, collect, approvals, members, reports) | 🔜 next phase |
-| PDF export (receipts, settlement) | 🔜 next phase (`expo-print`) |
+| **Manager — role switch** | manager lands on manager tabs; "View as member" toggle in More |
+| **Manager — Dashboard** | meal/rate/bazar stats, rent + utility collection %, today's meals, bazar leaders, meal-share |
+| **Manager — Meal Entry** | per-member day/night grid, absence badges, quick-fill, recent entries |
+| **Manager — Bazar Entry** | per-member amount grid, day total, recent entries |
+| **Manager — Utility Entry** | prepaid + postpaid bills per month, per-member payment tracking with carry-forward credit |
+| **Manager — Room Rent** | per-member due/paid/status/notes, auto-status, mark-all-paid, history |
+| **Manager — Member Updates** | activity feed of member self-service edits, mark seen |
+| **Manager — Audit Log** | category filter + search + pagination |
+| Manager — Collect Payment + receipt | 🔜 next phase |
+| Manager — Members CRUD / roles | 🔜 next phase (read-only roster for now) |
+| Manager — Monthly Log PDF, Meal Rate Chart, Mess Fund, compose | 🔜 next phase |
 | Superadmin | ❌ not planned for mobile |
-
-Managers can sign in and use every member screen today; manager-only tools are
-the next phase.
 
 ### Tests
 

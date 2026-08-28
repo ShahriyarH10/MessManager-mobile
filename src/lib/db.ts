@@ -348,6 +348,93 @@ export async function dbDeleteAttendance(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function dbGetAttendanceForDate(date: string): Promise<AttendanceRow[]> {
+  const { data, error } = await getClient()
+    .from('meal_attendance')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .eq('date', date);
+  if (error) throw error;
+  return (data as AttendanceRow[]) || [];
+}
+
+/* ── Row delete (meals/bazar) ──────────────────────────── */
+
+export async function dbDeleteRow(table: string, id: string): Promise<void> {
+  const { error } = await getClient().from(table).delete().eq('id', id).eq('mess_id', getMessId());
+  if (error) throw error;
+}
+
+/* ── Month lock ────────────────────────────────────────── */
+
+export async function isMonthLocked(key: string): Promise<boolean> {
+  try {
+    const { data } = await getClient()
+      .from('utility_payments')
+      .select('bills')
+      .eq('mess_id', getMessId())
+      .eq('month_key', key)
+      .maybeSingle();
+    return !!(data?.bills as any)?.locked;
+  } catch {
+    return false;
+  }
+}
+
+/* ── Audit log ─────────────────────────────────────────── */
+
+export type AuditRow = {
+  id: string;
+  actor_name: string;
+  action: string;
+  entity: string;
+  entity_id: string;
+  summary: string;
+  details: any;
+  created_at: string;
+};
+
+export async function logAudit(
+  action: string,
+  entity: string,
+  entityId: string | number,
+  summary: string,
+  details: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    const u = getSession()?.user;
+    await getClient().from('audit_log').insert({
+      mess_id: getMessId(),
+      actor_id: u?.memberId ?? null,
+      actor_name: u?.name ?? 'Unknown',
+      action,
+      entity,
+      entity_id: String(entityId || ''),
+      summary,
+      details,
+    });
+  } catch (e) {
+    console.warn('[audit] failed', e);
+  }
+}
+
+export async function dbGetAuditLog(
+  limit = 50,
+  offset = 0,
+  entityFilter?: string | null,
+): Promise<AuditRow[]> {
+  let q = getClient()
+    .from('audit_log')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (entityFilter) q = q.eq('entity', entityFilter);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as AuditRow[]) || [];
+}
+
 /* ── Connectivity ──────────────────────────────────────── */
 
 export async function checkDb(): Promise<boolean> {

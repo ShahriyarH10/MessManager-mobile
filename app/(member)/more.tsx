@@ -17,7 +17,7 @@ const LINKS: { icon: string; label: string; href: string }[] = [
 export default function More() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { user, mess, signOut } = useAuth();
+  const { user, mess, signOut, isManager, setViewMode } = useAuth();
   const col = avatarCol(user?.memberId ?? user?.username ?? 'x');
   const roleLabel =
     user?.role === 'manager' ? '👑 Manager' : user?.role === 'sub_manager' ? '⚡ Sub-manager' : 'Member';
@@ -46,6 +46,18 @@ export default function More() {
           </View>
         </View>
       </Card>
+
+      {isManager ? (
+        <Pressable
+          onPress={() => {
+            setViewMode('auto');
+            router.replace('/(manager)');
+          }}
+          style={{ backgroundColor: colors.accentBg, borderRadius: radiusSm, paddingVertical: 13, alignItems: 'center' }}
+        >
+          <Text style={{ color: colors.accent, fontWeight: '700', fontSize: 15 }}>👑 Back to manager view</Text>
+        </Pressable>
+      ) : null}
 
       <View style={{ backgroundColor: colors.bg2, borderRadius: radius, overflow: 'hidden' }}>
         {LINKS.map((l, i) => (
@@ -81,12 +93,6 @@ export default function More() {
         <Text style={{ color: colors.red, fontWeight: '700', fontSize: 15 }}>Sign out</Text>
       </Pressable>
 
-      {user?.role !== 'member' ? (
-        <Text style={{ color: colors.text3, fontSize: 12, textAlign: 'center', lineHeight: 18 }}>
-          You're signed in as a {roleLabel}. Manager tools (meal/bazar entry, collections, approvals)
-          are coming to mobile next — for now use the web app for those.
-        </Text>
-      ) : null}
     </ScreenScroll>
   );
 }

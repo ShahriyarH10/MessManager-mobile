@@ -16,7 +16,7 @@ import { useTheme, radiusSm } from '../src/theme';
 import { Loading } from '../src/components/ui';
 
 export default function Login() {
-  const { ready, user, signIn } = useAuth();
+  const { ready, user, area, signIn } = useAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -27,7 +27,7 @@ export default function Login() {
   const [err, setErr] = useState<string | null>(null);
 
   if (!ready) return <Loading />;
-  if (user) return <Redirect href="/(tabs)" />;
+  if (user) return <Redirect href={area === 'manager' ? '/(manager)' : '/(member)'} />;
 
   const submit = async () => {
     setErr(null);

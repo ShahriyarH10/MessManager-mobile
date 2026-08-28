@@ -4,7 +4,8 @@ import { useAuth } from '../src/context/AuthContext';
 import { Loading } from '../src/components/ui';
 
 export default function Index() {
-  const { ready, user } = useAuth();
+  const { ready, user, area } = useAuth();
   if (!ready) return <Loading label="Loading…" />;
-  return <Redirect href={user ? '/(tabs)' : '/login'} />;
+  if (!user) return <Redirect href="/login" />;
+  return <Redirect href={area === 'manager' ? '/(manager)' : '/(member)'} />;
 }

@@ -27,12 +27,19 @@ function RootStack() {
       >
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(member)" />
+        <Stack.Screen name="(manager)" />
         <Stack.Screen name="profile" options={{ ...stackScreen, title: 'My Profile' }} />
         <Stack.Screen name="monthly-log" options={{ ...stackScreen, title: 'Monthly Log' }} />
         <Stack.Screen name="messages" options={{ ...stackScreen, title: 'Messages' }} />
         <Stack.Screen name="mess-info" options={{ ...stackScreen, title: 'Mess Info' }} />
         <Stack.Screen name="change-password" options={{ ...stackScreen, title: 'Change Password' }} />
+        <Stack.Screen name="manager/meal-entry" options={{ ...stackScreen, title: 'Meal Entry' }} />
+        <Stack.Screen name="manager/bazar-entry" options={{ ...stackScreen, title: 'Bazar Entry' }} />
+        <Stack.Screen name="manager/utility-entry" options={{ ...stackScreen, title: 'Utility Entry' }} />
+        <Stack.Screen name="manager/rent-entry" options={{ ...stackScreen, title: 'Room Rent' }} />
+        <Stack.Screen name="manager/notifications" options={{ ...stackScreen, title: 'Member Updates' }} />
+        <Stack.Screen name="manager/audit-log" options={{ ...stackScreen, title: 'Audit Log' }} />
       </Stack>
     </>
   );
