@@ -1,9 +1,17 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, RefreshControl } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, RefreshControl, Alert } from 'react-native';
 import { getSession } from '../src/lib/session';
 import { useMessData } from '../src/hooks/useMessData';
 import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../src/components/ui';
-import { SegmentedControl } from '../src/components/form';
+import { SegmentedControl, Button } from '../src/components/form';
+import {
+  getPushDiagnostics,
+  registerPushToken,
+  sendSelfTestPush,
+  fireLocalTestNotification,
+  type PushDiagnostics,
+} from '../src/lib/push';
+import { dbCountPushTokensForMember } from '../src/lib/db';
 import { useTheme, radiusSm, avatarCol } from '../src/theme';
 import {
   MONTHS,
@@ -134,6 +142,8 @@ export default function Profile() {
       subtitle={`Room ${v.member.room || '—'} · @${v.member.username}`}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.accent} />}
     >
+      <PushDiagCard />
+
       <SegmentedControl options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
       {period !== '1' && period !== 'last' ? (
         <Text style={{ color: colors.accent, fontSize: 11 }}>
@@ -295,6 +305,113 @@ export default function Profile() {
         </View>
       </Card>
     </ScreenScroll>
+  );
+}
+
+function PushDiagCard() {
+  const { colors } = useTheme();
+  const [diag, setDiag] = useState<PushDiagnostics | null>(null);
+  const [dbCount, setDbCount] = useState<number | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setDiag(await getPushDiagnostics());
+    try {
+      setDbCount(await dbCountPushTokensForMember());
+    } catch {
+      setDbCount(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const row = (k: string, v: string, tone?: string) => (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 3 }}>
+      <Text style={{ color: colors.text3, fontSize: 11 }}>{k}</Text>
+      <Text style={{ color: tone ?? colors.text2, fontSize: 11, fontWeight: '600', flexShrink: 1, textAlign: 'right' }}>
+        {v}
+      </Text>
+    </View>
+  );
+
+  const ok = !!diag?.token && (dbCount ?? 0) > 0 && diag.permission === 'granted';
+
+  return (
+    <Card>
+      <CardTitle icon="notifications">Notification setup</CardTitle>
+      <View
+        style={{
+          backgroundColor: ok ? colors.greenBg : colors.amberBg,
+          borderRadius: radiusSm,
+          padding: 10,
+          marginBottom: 10,
+        }}
+      >
+        <Text style={{ color: ok ? colors.green : colors.amber, fontSize: 12, fontWeight: '800' }}>
+          {ok ? '✓ This device is registered for push' : '⚠ Push not fully set up on this device'}
+        </Text>
+      </View>
+
+      {diag ? (
+        <>
+          {row('Real device build', diag.isDevice ? 'yes' : 'NO — emulator/Expo Go', diag.isDevice ? undefined : colors.red)}
+          {row(
+            'Permission',
+            diag.permission,
+            diag.permission === 'granted' ? colors.green : colors.red,
+          )}
+          {row('EAS projectId', diag.projectId ? 'present' : 'MISSING', diag.projectId ? undefined : colors.red)}
+          {row('Push token', diag.token ? diag.token.slice(0, 26) + '…]' : 'none', diag.token ? colors.green : colors.red)}
+          {row(
+            'Saved on server',
+            dbCount == null ? '?' : `${dbCount} device(s)`,
+            (dbCount ?? 0) > 0 ? colors.green : colors.red,
+          )}
+          {diag.lastRunAt ? row('Last check', new Date(diag.lastRunAt).toLocaleString()) : null}
+          {diag.lastError ? (
+            <View style={{ backgroundColor: colors.redBg, borderRadius: 6, padding: 8, marginTop: 6 }}>
+              <Text style={{ color: colors.red, fontSize: 11 }}>{diag.lastError}</Text>
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <Text style={{ color: colors.text3, fontSize: 12 }}>Checking…</Text>
+      )}
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+        <Button
+          label="Re-register"
+          variant="ghost"
+          busy={busy === 'reg'}
+          onPress={async () => {
+            setBusy('reg');
+            await registerPushToken().catch(() => {});
+            await load();
+            setBusy(null);
+          }}
+          style={{ flexGrow: 1 }}
+        />
+        <Button
+          label="Send test push"
+          busy={busy === 'test'}
+          onPress={async () => {
+            setBusy('test');
+            const r = await sendSelfTestPush();
+            setBusy(null);
+            Alert.alert('Expo push response', r);
+          }}
+          style={{ flexGrow: 1 }}
+        />
+        <Button
+          label="Local test"
+          variant="ghost"
+          onPress={() => fireLocalTestNotification()}
+          style={{ flexGrow: 1 }}
+        />
+      </View>
+    </Card>
   );
 }
 

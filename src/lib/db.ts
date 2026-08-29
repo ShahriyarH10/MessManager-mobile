@@ -325,6 +325,18 @@ export async function dbDeletePushToken(token: string): Promise<void> {
   await getClient().from('push_tokens').delete().eq('token', token);
 }
 
+/** How many device tokens the backend currently has for the signed-in member. */
+export async function dbCountPushTokensForMember(): Promise<number> {
+  const u = getSession()?.user;
+  if (!u?.memberId) return 0;
+  const { count, error } = await getClient()
+    .from('push_tokens')
+    .select('id', { count: 'exact', head: true })
+    .eq('member_id', u.memberId);
+  if (error) return 0;
+  return count || 0;
+}
+
 /* ── Announcements ──────────────────────────────────────── */
 
 export type Announcement = {

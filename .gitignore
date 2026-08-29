@@ -53,3 +53,5 @@ service-account*.json
 # bundle checks
 dist-check/
 dist-test/
+
+secret.txt

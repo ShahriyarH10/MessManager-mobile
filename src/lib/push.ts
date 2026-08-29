@@ -92,33 +92,135 @@ export async function ensurePermission(canPrompt = true): Promise<boolean> {
 }
 
 const LAST_TOKEN_KEY = 'mm_push_token';
+const LAST_RESULT_KEY = 'mm_push_last_result';
+
+async function recordResult(patch: { token?: string | null; error?: string | null }): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      LAST_RESULT_KEY,
+      JSON.stringify({ token: null, error: null, ...patch, at: new Date().toISOString() }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Gets this device's Expo push token in a real build and stores it against the
  * signed-in member (server-side) so the send-push edge function can reach them.
- * No-op in Expo Go / simulator.
+ * No-op in Expo Go / simulator. Records why it failed (see getPushDiagnostics).
  */
 export async function registerPushToken(): Promise<string | null> {
-  if (!Device.isDevice || !getSession()?.user) return null;
+  if (!getSession()?.user) return null;
+  if (!Device.isDevice) {
+    await recordResult({ error: 'Not a physical device (emulator / Expo Go get no push token).' });
+    return null;
+  }
   try {
-    if (!(await ensurePermission())) return null;
+    if (!(await ensurePermission())) {
+      await recordResult({ error: 'Notification permission not granted.' });
+      return null;
+    }
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       (Constants as any).easConfig?.projectId;
     const { data: token } = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined,
     );
-    if (!token) return null;
-    // Only hit the DB when the token actually changed.
+    if (!token) {
+      await recordResult({ error: 'getExpoPushTokenAsync returned nothing.' });
+      return null;
+    }
     const last = await AsyncStorage.getItem(LAST_TOKEN_KEY);
     if (last !== token) {
-      await dbUpsertPushToken(token, Platform.OS).catch(() => {});
+      try {
+        await dbUpsertPushToken(token, Platform.OS);
+      } catch (e: any) {
+        await recordResult({ token, error: 'Token saved locally but DB write failed: ' + (e?.message ?? e) });
+        return token;
+      }
       await AsyncStorage.setItem(LAST_TOKEN_KEY, token);
     }
+    await recordResult({ token, error: null });
     return token;
-  } catch {
+  } catch (e: any) {
+    await recordResult({ error: 'getExpoPushTokenAsync threw: ' + (e?.message ?? String(e)) });
     return null; // Expo Go can't get a token on SDK 53+
   }
+}
+
+export type PushDiagnostics = {
+  isDevice: boolean;
+  permission: string;
+  projectId: string | null;
+  token: string | null;
+  lastError: string | null;
+  lastRunAt: string | null;
+};
+
+export async function getPushDiagnostics(): Promise<PushDiagnostics> {
+  let permission = 'unknown';
+  try {
+    permission = (await Notifications.getPermissionsAsync()).status;
+  } catch {
+    permission = 'error';
+  }
+  let last: { token?: string; error?: string; at?: string } = {};
+  try {
+    last = JSON.parse((await AsyncStorage.getItem(LAST_RESULT_KEY)) || '{}');
+  } catch {
+    /* ignore */
+  }
+  const storedToken = await AsyncStorage.getItem(LAST_TOKEN_KEY);
+  return {
+    isDevice: Device.isDevice,
+    permission,
+    projectId:
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as any).easConfig?.projectId ??
+      null,
+    token: last.token ?? storedToken ?? null,
+    lastError: last.error ?? null,
+    lastRunAt: last.at ?? null,
+  };
+}
+
+/**
+ * Sends a push straight to THIS device via Expo's API — bypasses the webhook and
+ * edge function. Proves (or disproves) the Expo → FCM → device leg on its own.
+ * Returns Expo's raw response for display.
+ */
+export async function sendSelfTestPush(): Promise<string> {
+  const token = (await AsyncStorage.getItem(LAST_TOKEN_KEY)) || (await registerPushToken());
+  if (!token) return 'No push token on this device — see the error above.';
+  try {
+    const res = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        to: token,
+        title: 'Test notification',
+        body: 'Expo → FCM → this device works. Close the app and check delivery too.',
+        priority: 'high',
+        channelId: 'broadcasts',
+      }),
+    });
+    return JSON.stringify(await res.json());
+  } catch (e: any) {
+    return 'Request failed: ' + (e?.message ?? String(e));
+  }
+}
+
+/** Fire a purely local notification — proves the OS notification path + channel. */
+export async function fireLocalTestNotification(): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Local test',
+      body: 'If you see this, notifications are allowed on this device.',
+      ...(Platform.OS === 'android' ? { channelId: 'broadcasts' } : {}),
+    },
+    trigger: null,
+  });
 }
 
 /** Remove this device's token on sign-out so a signed-out phone stops buzzing. */
