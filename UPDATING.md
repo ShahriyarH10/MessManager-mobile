@@ -5,14 +5,16 @@ reference (stores, iOS, push, credentials) see [DEPLOY.md](DEPLOY.md).
 
 Current setup: EAS CLI (`npx eas-cli`), signed in as `shahriyar_h10`. Build
 profile **`preview`** → Android APK, internal distribution, update channel
-**`preview`**, `versionCode` auto-increments. `runtimeVersion` follows
-`expo.version` in `app.json` (currently **1.0.2**). `expo-updates` ships in the
-app from 1.0.1 onward, so over-the-air updates work for any 1.0.1+ build.
+**`preview`**, `versionCode` / iOS `buildNumber` auto-increment. `runtimeVersion`
+follows `expo.version` (currently **1.1.0**). `expo-updates` ships in the app
+from 1.0.1 onward, so over-the-air updates work for any 1.0.1+ build.
 
-> **1.0.2 is a native change** — adds `expo-background-task` / `expo-task-manager`
-> (background polling) and FCM push config (see [PUSH_SETUP.md](PUSH_SETUP.md)).
-> It must be built and re-distributed (Path B). JS-only fixes on top of a 1.0.2
-> build can then go OTA again.
+> **1.1.0 is a native change** — `expo-background-task` / `expo-task-manager`
+> (background polling), FCM/APNs push (see [PUSH_SETUP.md](PUSH_SETUP.md)), plus
+> the carry-forward tags / heatmap / monthly-log rework. Must be built and
+> re-distributed (Path B). JS-only fixes on top of a 1.1.0 build then go OTA.
+> `google-services.json` is optional at build time — `app.config.js` only wires
+> Android push when the file is present.
 
 ---
 
@@ -44,12 +46,12 @@ git commit -m "describe the change"
 npx eas-cli update --channel preview --message "describe the change"
 ```
 
-Installed 1.0.1+ apps download it in the background and apply on the next cold
-start (often the 2nd launch). Nothing to distribute.
+Installed apps on the same `runtimeVersion` download it in the background and
+apply on the next cold start (often the 2nd launch). Nothing to distribute.
 
 > Keep `expo.version` unchanged here. `runtimeVersion` follows it, and an update
-> only reaches builds on the same runtime (`1.0.1`). Bumping the version would
-> strand every installed app until they get a new APK.
+> only reaches builds on the same runtime (e.g. `1.1.0`). Bumping the version
+> would strand every installed app until they get a new build.
 
 ---
 
@@ -61,7 +63,7 @@ cd "c:/Users/shahr/Downloads/MessManager All versions/MessManager-mobile"
 # 1. verify
 npx tsc --noEmit
 
-# 2. bump the version in app.json:  "version": "1.0.1"  ->  "1.0.2"
+# 2. bump the version in app.json:  "version": "1.1.0"  ->  "1.1.1"
 
 # 3. commit
 git add -A

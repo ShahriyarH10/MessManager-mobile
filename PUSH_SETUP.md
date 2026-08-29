@@ -31,15 +31,13 @@ Messaging project.
 
 1. <https://console.firebase.google.com> → **Add project** (any name).
 2. In the project → **Add app → Android**. Package name: `com.messmanager.mobile`.
-3. Download **`google-services.json`**. Put it in the repo root
-   (`MessManager-mobile/google-services.json`). It's git-ignored.
-4. Add this line to [app.json](app.json) under `"android"`:
-   ```json
-   "googleServicesFile": "./google-services.json",
-   ```
-5. Firebase → **Project settings → Service accounts → Generate new private key**
+3. Download **`google-services.json`** and drop it in the repo root
+   (`MessManager-mobile/google-services.json`). It's git-ignored, and
+   [app.config.js](app.config.js) picks it up automatically — nothing else to
+   edit. (No file = build still works, Android push just stays off.)
+4. Firebase → **Project settings → Service accounts → Generate new private key**
    → downloads a JSON.
-6. Upload that JSON to EAS so Expo can call FCM:
+5. Upload that JSON to EAS so Expo can call FCM:
    ```bash
    npx eas-cli credentials
    # Android → production/preview → Google Service Account
