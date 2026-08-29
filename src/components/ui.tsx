@@ -109,6 +109,46 @@ export function Pill({ text, color, bg }: { text: string; color: string; bg: str
   );
 }
 
+/** High-visibility pill for carry-forward / applied-credit status. */
+export function CarryTag({
+  text,
+  icon = 'chevron',
+  tone = 'blue',
+  style,
+}: {
+  text: string;
+  icon?: IconName;
+  tone?: 'blue' | 'green' | 'amber';
+  style?: ViewStyle;
+}) {
+  const { colors } = useTheme();
+  const fg = tone === 'green' ? colors.green : tone === 'amber' ? colors.amber : colors.blue;
+  const bg = tone === 'green' ? colors.greenBg : tone === 'amber' ? colors.amberBg : colors.blueBg;
+  return (
+    <View
+      style={[
+        {
+          alignSelf: 'flex-start',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 5,
+          backgroundColor: bg,
+          borderWidth: 1,
+          borderColor: fg,
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          marginTop: 8,
+        },
+        style,
+      ]}
+    >
+      <Icon name={icon} size={12} color={fg} />
+      <Text style={{ color: fg, fontSize: 11, fontWeight: '800', letterSpacing: 0.2 }}>{text}</Text>
+    </View>
+  );
+}
+
 export function Row({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return <View style={[{ flexDirection: 'row', alignItems: 'center' }, style]}>{children}</View>;
 }

@@ -17,7 +17,7 @@ import {
   UTIL_PREPAID_KEYS,
   UTIL_POSTPAID_KEYS,
 } from '../../src/core/settlement';
-import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../../src/components/ui';
+import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered, CarryTag } from '../../src/components/ui';
 import { Button, Field, MonthYearField, Badge } from '../../src/components/form';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, UtilityRecord } from '../../src/core/types';
@@ -277,10 +277,15 @@ export default function UtilityEntry() {
                   <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{m.name}</Text>
                   <Badge text={r.status} tone={tone as any} />
                 </View>
-                <Text style={{ color: colors.text3, fontSize: 11 }}>
-                  Due {fmtTk(due)}
-                  {cr > 0 ? `  ·  ${fmtTk(cr)} carried fwd` : ''}
-                </Text>
+                <Text style={{ color: colors.text3, fontSize: 11 }}>Due {fmtTk(due)}</Text>
+                {cr > 0 ? (
+                  <CarryTag
+                    tone="green"
+                    icon="fund"
+                    text={`−${fmtTk(cr)} carried-forward credit applied`}
+                    style={{ marginTop: 0 }}
+                  />
+                ) : null}
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.text3, fontSize: 10, marginBottom: 3 }}>Paid ৳</Text>

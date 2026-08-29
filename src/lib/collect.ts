@@ -171,14 +171,18 @@ export async function saveChangeRow(
   row: CollectRow,
   cashNowRaw: number,
 ): Promise<{ cashNow: number; carry: number }> {
-  const remaining = round2(Math.max(0, row.pendingChange - row.existingChangeCredit));
+  // Only the fresh, unresolved overpayment is settled here. Anything already
+  // carried to next month is a separate committed credit — added to, never
+  // replaced or netted against.
+  const remaining = round2(Math.max(0, row.pendingChange));
   const cashNow = round2(Math.min(Math.max(0, cashNowRaw), remaining));
   const carry = round2(remaining - cashNow);
 
   const nextRec = await dbGetUtilityMonth(nextKey);
   const nextBills = { ...((nextRec?.bills || {}) as Record<string, any>) };
   const changeCredits = { ...(nextBills.change_credit || {}) };
-  if (carry > 0) changeCredits[memberName] = carry;
+  const totalChangeCarry = round2(row.existingChangeCredit + carry);
+  if (totalChangeCarry > 0.001) changeCredits[memberName] = totalChangeCarry;
   else delete changeCredits[memberName];
   nextBills.change_credit = changeCredits;
   await dbUpsertUtility(nextMonthIdx, nextYear, nextKey, nextBills, nextRec?.payments || {});
@@ -210,7 +214,9 @@ export async function saveCreditRow(
   row: CollectRow,
   cashNowRaw: number,
 ): Promise<{ cashNow: number; carry: number }> {
-  const messOwes = round2(Math.abs(row.netPayable));
+  // What the mess owes *after* netting any old unpaid dues (prevDue): a member
+  // who still owes from before is not owed money, even with a meal surplus.
+  const messOwes = round2(Math.abs(Math.min(0, row.total)));
   const remaining = round2(Math.max(0, messOwes - row.existingCarryCredit));
   const cashNow = round2(Math.min(Math.max(0, cashNowRaw), remaining));
   const carry = round2(remaining - cashNow);
@@ -228,7 +234,8 @@ export async function saveCreditRow(
   const nextRec = await dbGetUtilityMonth(nextKey);
   const nextBills = { ...((nextRec?.bills || {}) as Record<string, any>) };
   const credit = { ...(nextBills.mess_credit || {}) };
-  if (carry > 0) credit[memberName] = carry;
+  const totalCreditCarry = round2(row.existingCarryCredit + carry);
+  if (totalCreditCarry > 0.001) credit[memberName] = totalCreditCarry;
   else delete credit[memberName];
   nextBills.mess_credit = credit;
   await dbUpsertUtility(nextMonthIdx, nextYear, nextKey, nextBills, nextRec?.payments || {});

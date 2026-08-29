@@ -14,7 +14,7 @@ import {
 } from '../../src/lib/collect';
 import { computeSplit, buildReceiptText, buildReceiptHtml } from '../../src/core/collect';
 import { thisMonth, MONTHS, fmtTk, round2, monthLabelFromKey, monthKey } from '../../src/core/format';
-import { ScreenScroll, Card, CardTitle, Loading, Centered, EmptyState } from '../../src/components/ui';
+import { ScreenScroll, Card, CardTitle, Loading, Centered, EmptyState, CarryTag } from '../../src/components/ui';
 import { MonthYearField, Field, Button } from '../../src/components/form';
 import { Icon } from '../../src/components/Icon';
 import { useTheme, radiusSm } from '../../src/theme';
@@ -60,16 +60,20 @@ export default function Collect() {
     load();
   }, [load]);
 
-  const owing = useMemo(() => (cd?.rows ?? []).filter((r) => r.total > 0.01 || r.prevDue > 0.01), [cd]);
+  // A member is "owing" only when their net (this month + old dues) is positive.
+  // If a meal surplus more than covers their dues, they belong in the return
+  // section below — never in both.
+  const owing = useMemo(() => (cd?.rows ?? []).filter((r) => r.total > 0.01), [cd]);
 
   // Every reason the mess has to hand money back to a member, folded into one row
   // per person: an overpayment from a Collect action (pending change) and/or a
-  // negative settlement (meal surplus the mess owes). Same member, one card.
+  // negative net settlement (meal surplus, after netting old dues). Same member,
+  // one card. Amounts already carried to next month are shown for context only.
   const returnRows = useMemo(() => {
     return (cd?.rows ?? [])
       .map((r) => {
-        const changeRemaining = round2(Math.max(0, r.pendingChange - r.existingChangeCredit));
-        const settlementOwed = round2(Math.abs(Math.min(0, r.netPayable)));
+        const changeRemaining = round2(Math.max(0, r.pendingChange));
+        const settlementOwed = round2(Math.abs(Math.min(0, r.total)));
         const owesRemaining = round2(Math.max(0, settlementOwed - r.existingCarryCredit));
         return {
           r,
@@ -210,7 +214,7 @@ export default function Collect() {
               <View style={{ flex: 1 }}>
                 <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{r.name}</Text>
                 {r.messCredit > 0 ? (
-                  <Text style={{ color: colors.blue, fontSize: 11 }}>{fmtTk(r.messCredit)} credit applied</Text>
+                  <CarryTag icon="fund" tone="green" text={`−${fmtTk(r.messCredit)} carried-forward credit`} />
                 ) : null}
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -294,7 +298,6 @@ export default function Collect() {
             const parts: string[] = [];
             if (rr.changeRemaining > 0.01) parts.push(`${fmtTk(rr.changeRemaining)} overpaid`);
             if (rr.owesRemaining > 0.01) parts.push(`${fmtTk(rr.owesRemaining)} mess owes`);
-            if (rr.alreadyCarried > 0) parts.push(`${fmtTk(rr.alreadyCarried)} already carried`);
             return (
               <Card key={'ret' + r.id}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -304,12 +307,20 @@ export default function Collect() {
                 {parts.length > 0 ? (
                   <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }}>{parts.join(' · ')}</Text>
                 ) : null}
+                {rr.alreadyCarried > 0 ? (
+                  <CarryTag text={`${fmtTk(rr.alreadyCarried)} already carried → ${nextLabel}`} />
+                ) : null}
                 <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 10 }}>
                   <CashInput value={cashBack[r.id] ?? ''} onChange={(x) => setCashBack((p) => ({ ...p, [r.id]: x }))} colors={colors} />
                   <Button label="Save" onPress={() => onReturn(rr)} busy={savingId === r.id} style={{ paddingHorizontal: 22 }} />
                 </View>
-                <Text style={{ color: colors.blue, fontSize: 11, marginTop: 8 }}>
-                  {carry > 0 ? `Carries ${fmtTk(carry)} to ${nextLabel}` : 'Fully returned'} · ৳0 = carry all
+                {carry > 0 ? (
+                  <CarryTag text={`Carries ${fmtTk(carry)} → ${nextLabel}`} />
+                ) : (
+                  <CarryTag tone="green" icon="check" text="Fully returned — nothing carried" />
+                )}
+                <Text style={{ color: colors.text3, fontSize: 10, marginTop: 6 }}>
+                  Leave the box empty (৳0) to carry the whole amount forward.
                 </Text>
               </Card>
             );
@@ -373,3 +384,4 @@ function Chip({ text, tone, bg }: { text: string; tone: string; bg: string }) {
     </View>
   );
 }
+

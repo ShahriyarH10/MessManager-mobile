@@ -5,10 +5,10 @@ import * as Sharing from 'expo-sharing';
 import { getSession } from '../src/lib/session';
 import { useAuth } from '../src/context/AuthContext';
 import { useMessData } from '../src/hooks/useMessData';
-import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../src/components/ui';
+import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered, CarryTag } from '../src/components/ui';
 import { MonthYearField, Button } from '../src/components/form';
-import { useTheme, radiusSm } from '../src/theme';
-import { MONTHS, fmtTk, round2, monthKey, thisMonth, previousMonth } from '../src/core/format';
+import { useTheme, radius, radiusSm, avatarCol } from '../src/theme';
+import { MONTHS, fmtTk, round2, monthKey, thisMonth, previousMonth, initials } from '../src/core/format';
 import {
   calcMemberSettlement,
   calcPrevDueForMember,
@@ -159,6 +159,8 @@ export default function MonthlyLog() {
         }}
       />
 
+      <SettlementHero grandNet={report.grandNet} count={report.rows.length} label={report.curLabel} />
+
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         <StatCard label="Total meals" value={report.totalMeals} sub={report.prevLabel} accent={colors.accent} />
         <StatCard label="Meal rate" value={fmtTk(report.mealRate)} sub={`${fmtTk(report.totalBazar)} ÷ ${report.totalMeals}`} accent={colors.blue} />
@@ -167,11 +169,24 @@ export default function MonthlyLog() {
       </View>
 
       <Card>
-        <CardTitle>Member settlement</CardTitle>
-        <View style={{ gap: 10 }}>
+        <CardTitle icon="members">Per-member settlement</CardTitle>
+        <View style={{ gap: 12 }}>
           {report.rows.map((p) => {
             const mine = p.memberName === myName;
             const net = p.netWithPrevDue;
+            const netPos = net > 0.01;
+            const netNeg = net < -0.01;
+            const netFg = netPos ? colors.red : netNeg ? colors.green : colors.text3;
+            const netBg = netPos ? colors.redBg : netNeg ? colors.greenBg : colors.bg2;
+            const av = avatarCol(p.memberName);
+            const charges = round2(p.mealCost + p.khalaShare + p.otherShare + p.prepaidUtility + p.roomRent);
+            const paid = round2(p.utilityPaid + p.roomRentPaid + p.mealPaid);
+            const segs = [
+              { v: p.mealCost, c: colors.purple },
+              { v: round2(p.khalaShare + p.otherShare), c: colors.red },
+              { v: p.prepaidUtility, c: colors.blue },
+              { v: p.roomRent, c: colors.accent },
+            ];
             return (
               <View
                 key={p.memberName}
@@ -179,75 +194,114 @@ export default function MonthlyLog() {
                   backgroundColor: mine ? colors.accentBg : colors.bg3,
                   borderRadius: radiusSm,
                   padding: 12,
-                  borderWidth: mine ? 1 : 0,
-                  borderColor: colors.accent,
+                  borderWidth: 1,
+                  borderColor: mine ? colors.accent : 'transparent',
                 }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: av.bg,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ color: av.fg, fontSize: 11, fontWeight: '800' }}>{initials(p.memberName)}</Text>
+                  </View>
+                  <Text style={{ flex: 1, color: colors.text, fontWeight: '800', fontSize: 14 }}>
                     {p.memberName}
                     {mine ? ' (You)' : ''}
                   </Text>
-                  <Text
-                    style={{
-                      color: net > 0 ? colors.red : net < 0 ? colors.green : colors.text3,
-                      fontWeight: '800',
-                      fontSize: 14,
-                    }}
-                  >
-                    {net > 0 ? `Pay ${fmtTk(net)}` : net < 0 ? `Get ${fmtTk(Math.abs(net))}` : '✓ Settled'}
-                  </Text>
+                  <View style={{ backgroundColor: netBg, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: netFg, fontWeight: '800', fontSize: 13 }}>
+                      {netPos ? `Pay ${fmtTk(net)}` : netNeg ? `Get ${fmtTk(Math.abs(net))}` : '✓ Settled'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  <Chip label="Meal" value={fmtTk(p.mealCost)} color={colors.red} />
-                  <Chip label="Khala" value={fmtTk(p.khalaShare)} color={colors.red} />
-                  <Chip label="Other" value={fmtTk(p.otherShare)} color={colors.red} />
-                  <Chip label="Util" value={fmtTk(p.prepaidUtility)} color={colors.blue} />
-                  <Chip label="Rent" value={fmtTk(p.roomRent)} color={colors.blue} />
-                  <Chip label="Bazar" value={fmtTk(p.memberBazar)} color={colors.green} />
-                  <Chip label="Paid" value={fmtTk(round2(p.utilityPaid + p.roomRentPaid + p.mealPaid))} color={colors.green} />
-                  {p.messCredit > 0 ? <Chip label="Carry fwd" value={fmtTk(p.messCredit)} color={colors.blue} /> : null}
-                  {p.prevDue > 0 ? <Chip label="Prev due" value={fmtTk(p.prevDue)} color={colors.red} /> : null}
+
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    height: 7,
+                    borderRadius: 99,
+                    overflow: 'hidden',
+                    backgroundColor: colors.bg2,
+                    marginBottom: 10,
+                  }}
+                >
+                  {charges > 0
+                    ? segs.map((s, i) =>
+                        s.v > 0 ? (
+                          <View key={i} style={{ width: `${(s.v / charges) * 100}%`, backgroundColor: s.c }} />
+                        ) : null,
+                      )
+                    : null}
                 </View>
+
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  <Chip label="Meal" value={fmtTk(p.mealCost)} color={colors.purple} />
+                  {p.khalaShare > 0 ? <Chip label="Khala" value={fmtTk(p.khalaShare)} color={colors.red} /> : null}
+                  {p.otherShare > 0 ? <Chip label="Other" value={fmtTk(p.otherShare)} color={colors.red} /> : null}
+                  <Chip label="Utility" value={fmtTk(p.prepaidUtility)} color={colors.blue} />
+                  <Chip label="Rent" value={fmtTk(p.roomRent)} color={colors.accent} />
+                  <Chip label="Bazar" value={`−${fmtTk(p.memberBazar)}`} color={colors.green} />
+                  {paid > 0 ? <Chip label="Paid" value={`−${fmtTk(paid)}`} color={colors.green} /> : null}
+                </View>
+
+                {p.messCredit > 0 ? (
+                  <CarryTag tone="green" icon="fund" text={`−${fmtTk(p.messCredit)} carried-forward credit`} />
+                ) : null}
+                {p.prevDue > 0 ? (
+                  <CarryTag tone="amber" icon="warning" text={`${fmtTk(p.prevDue)} unpaid from earlier months`} />
+                ) : null}
               </View>
             );
           })}
-        </View>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            marginTop: 12,
-            padding: 12,
-            backgroundColor: colors.bg2,
-            borderRadius: radiusSm,
-          }}
-        >
-          <Text style={{ color: colors.text, fontWeight: '800' }}>Mess total</Text>
-          <Text
-            style={{
-              color: report.grandNet > 0 ? colors.red : report.grandNet < 0 ? colors.green : colors.text3,
-              fontWeight: '800',
-            }}
-          >
-            {report.grandNet > 0
-              ? `Collect ${fmtTk(report.grandNet)}`
-              : report.grandNet < 0
-              ? `Owe ${fmtTk(Math.abs(report.grandNet))}`
-              : '✓ Balanced'}
-          </Text>
         </View>
       </Card>
     </ScreenScroll>
   );
 }
 
+function SettlementHero({ grandNet, count, label }: { grandNet: number; count: number; label: string }) {
+  const { colors } = useTheme();
+  const pos = grandNet > 0.01;
+  const neg = grandNet < -0.01;
+  const fg = pos ? colors.red : neg ? colors.green : colors.text2;
+  const bg = pos ? colors.redBg : neg ? colors.greenBg : colors.bg3;
+  return (
+    <View style={{ backgroundColor: bg, borderColor: fg, borderWidth: 1, borderRadius: radius, padding: 16 }}>
+      <Text style={{ color: fg, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+        {pos ? 'Mess collects' : neg ? 'Mess pays out' : 'All settled'}
+      </Text>
+      <Text style={{ color: fg, fontSize: 30, fontWeight: '900', marginTop: 3 }}>
+        {pos || neg ? fmtTk(Math.abs(grandNet)) : '✓ Balanced'}
+      </Text>
+      <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }}>
+        {count} members · {label}
+      </Text>
+    </View>
+  );
+}
+
 function Chip({ label, value, color }: { label: string; value: string; color: string }) {
   const { colors } = useTheme();
   return (
-    <View style={{ backgroundColor: colors.bg2, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }}>
-      <Text style={{ color: colors.text3, fontSize: 9 }}>{label}</Text>
-      <Text style={{ color, fontSize: 12, fontWeight: '700' }}>{value}</Text>
+    <View
+      style={{
+        backgroundColor: colors.bg2,
+        borderRadius: 7,
+        borderLeftWidth: 2,
+        borderLeftColor: color,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+      }}
+    >
+      <Text style={{ color: colors.text3, fontSize: 9, letterSpacing: 0.3 }}>{label}</Text>
+      <Text style={{ color, fontSize: 12, fontWeight: '800' }}>{value}</Text>
     </View>
   );
 }

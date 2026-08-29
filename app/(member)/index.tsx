@@ -195,41 +195,29 @@ export default function Dashboard() {
           {today.isNextDay ? 'Tomorrow' : 'Today'} · {today.dateStr}
         </CardTitle>
         {today.hasEntry ? (
-          <>
-            <View style={{ flexDirection: 'row', gap: 14, marginBottom: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Icon name="day" size={15} color={colors.blue} />
-                <Text style={{ color: colors.blue, fontSize: 13, fontWeight: '700' }}>{today.totalDay} day</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Icon name="night" size={15} color={colors.amber} />
-                <Text style={{ color: colors.amber, fontSize: 13, fontWeight: '700' }}>{today.totalNight} night</Text>
-              </View>
-            </View>
-            <View
+          <View
+            style={{
+              backgroundColor: today.myDay + today.myNight > 0 ? colors.accentBg : colors.redBg,
+              borderRadius: radiusSm,
+              padding: 12,
+            }}
+          >
+            <Text
               style={{
-                backgroundColor: today.myDay + today.myNight > 0 ? colors.accentBg : colors.redBg,
-                borderRadius: radiusSm,
-                padding: 12,
+                color: today.myDay + today.myNight > 0 ? colors.accent : colors.red,
+                fontWeight: '700',
+                fontSize: 13,
               }}
             >
-              <Text
-                style={{
-                  color: today.myDay + today.myNight > 0 ? colors.accent : colors.red,
-                  fontWeight: '700',
-                  fontSize: 13,
-                }}
-              >
-                {today.myDay + today.myNight > 0 ? 'You are eating' : 'You are absent'}
+              {today.myDay + today.myNight > 0 ? 'You are eating' : 'You are absent'}
+            </Text>
+            {today.myDay + today.myNight > 0 ? (
+              <Text style={{ color: colors.text3, fontSize: 12, marginTop: 3 }}>
+                {today.myDay > 0 ? `Day ${today.myDay}  ` : ''}
+                {today.myNight > 0 ? `Night ${today.myNight}` : ''}
               </Text>
-              {today.myDay + today.myNight > 0 ? (
-                <Text style={{ color: colors.text3, fontSize: 12, marginTop: 3 }}>
-                  {today.myDay > 0 ? `Day ${today.myDay}  ` : ''}
-                  {today.myNight > 0 ? `Night ${today.myNight}` : ''}
-                </Text>
-              ) : null}
-            </View>
-          </>
+            ) : null}
+          </View>
         ) : (
           <Text style={{ color: colors.text3, fontSize: 13 }}>
             No meal entry for {today.isNextDay ? 'tomorrow' : 'today'} yet
@@ -314,23 +302,42 @@ export default function Dashboard() {
           bottom: insets.bottom + 18,
           backgroundColor: colors.accent,
           borderRadius: radius,
-          paddingHorizontal: 16,
-          paddingVertical: 10,
+          paddingLeft: 6,
+          paddingRight: 14,
+          paddingVertical: 6,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 8,
-          shadowColor: '#000',
-          shadowOpacity: 0.25,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 6,
+          gap: 10,
+          shadowColor: colors.accent,
+          shadowOpacity: 0.35,
+          shadowRadius: 14,
+          shadowOffset: { width: 0, height: 5 },
+          elevation: 8,
         }}
       >
-        <Icon name="meals" size={16} color="#1a1816" />
-        <Text style={{ color: '#1a1816', fontWeight: '900', fontSize: 15 }}>{todayTotal}</Text>
-        <Text style={{ color: '#1a1816', fontWeight: '700', fontSize: 11, opacity: 0.75 }}>
-          {data.today.isNextDay ? "tomorrow's meals" : "today's meals"}
-        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            backgroundColor: 'rgba(26,24,22,0.14)',
+            borderRadius: radius - 4,
+            paddingHorizontal: 9,
+            paddingVertical: 6,
+          }}
+        >
+          <Icon name="day" size={13} color="#1a1816" />
+          <Text style={{ color: '#1a1816', fontWeight: '900', fontSize: 14 }}>{data.today.totalDay}</Text>
+          <View style={{ width: 1, height: 12, backgroundColor: 'rgba(26,24,22,0.28)', marginHorizontal: 3 }} />
+          <Icon name="night" size={13} color="#1a1816" />
+          <Text style={{ color: '#1a1816', fontWeight: '900', fontSize: 14 }}>{data.today.totalNight}</Text>
+        </View>
+        <View>
+          <Text style={{ color: '#1a1816', fontWeight: '900', fontSize: 13, lineHeight: 15 }}>{todayTotal} meals</Text>
+          <Text style={{ color: '#1a1816', fontWeight: '700', fontSize: 10, opacity: 0.7, lineHeight: 12 }}>
+            {data.today.isNextDay ? 'tomorrow' : 'today'}
+          </Text>
+        </View>
       </View>
     ) : null}
     </View>
