@@ -110,7 +110,7 @@ async function recordResult(patch: { token?: string | null; error?: string | nul
  * signed-in member (server-side) so the send-push edge function can reach them.
  * No-op in Expo Go / simulator. Records why it failed (see getPushDiagnostics).
  */
-export async function registerPushToken(): Promise<string | null> {
+export async function registerPushToken(force = false): Promise<string | null> {
   if (!getSession()?.user) return null;
   if (!Device.isDevice) {
     await recordResult({ error: 'Not a physical device (emulator / Expo Go get no push token).' });
@@ -132,11 +132,12 @@ export async function registerPushToken(): Promise<string | null> {
       return null;
     }
     const last = await AsyncStorage.getItem(LAST_TOKEN_KEY);
-    if (last !== token) {
+    if (force || last !== token) {
       try {
         await dbUpsertPushToken(token, Platform.OS);
       } catch (e: any) {
-        await recordResult({ token, error: 'Token saved locally but DB write failed: ' + (e?.message ?? e) });
+        await AsyncStorage.removeItem(LAST_TOKEN_KEY); // so the next run retries the DB write
+        await recordResult({ token, error: 'Token OK but server save failed: ' + (e?.message ?? e) });
         return token;
       }
       await AsyncStorage.setItem(LAST_TOKEN_KEY, token);

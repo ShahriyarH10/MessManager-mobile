@@ -387,7 +387,7 @@ function PushDiagCard() {
           busy={busy === 'reg'}
           onPress={async () => {
             setBusy('reg');
-            await registerPushToken().catch(() => {});
+            await registerPushToken(true).catch(() => {});
             await load();
             setBusy(null);
           }}
