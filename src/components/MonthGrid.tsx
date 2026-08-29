@@ -15,6 +15,27 @@ function shiftKey(key: string, delta: number): string {
   return `${ny}-${String(nm + 1).padStart(2, '0')}`;
 }
 
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** 0 = no data, 1‑4 = ascending heat buckets (GitHub‑style). */
+function heatLevel(value: number, max: number): 0 | 1 | 2 | 3 | 4 {
+  if (!(value > 0) || !(max > 0)) return 0;
+  const t = value / max;
+  if (t < 0.25) return 1;
+  if (t < 0.5) return 2;
+  if (t < 0.75) return 3;
+  return 4;
+}
+
+const HEAT_ALPHA = [0, 0.16, 0.32, 0.5, 0.72];
+
 /**
  * A tappable month calendar. Each day shows an optional numeric value; tapping a
  * day calls onSelectDay with its YYYY-MM-DD string. Used by the meal / bazar
@@ -28,6 +49,7 @@ export function MonthGrid({
   onSelectDay,
   format = (n) => String(n),
   accent,
+  heatmap = true,
   maxMonthKey = todayStr().slice(0, 7),
 }: {
   monthKey: string;
@@ -37,10 +59,23 @@ export function MonthGrid({
   onSelectDay: (date: string) => void;
   format?: (n: number) => string;
   accent?: string;
+  heatmap?: boolean;
   maxMonthKey?: string;
 }) {
   const { colors } = useTheme();
   const acc = accent ?? colors.accent;
+  const accRgb = hexToRgb(acc);
+  const monthMax = React.useMemo(() => {
+    let mx = 0;
+    for (const k in values) {
+      if (k.startsWith(monthKey) && values[k] > mx) mx = values[k];
+    }
+    return mx;
+  }, [values, monthKey]);
+  const heatBg = (lvl: number) =>
+    heatmap && accRgb && lvl > 0
+      ? `rgba(${accRgb[0]}, ${accRgb[1]}, ${accRgb[2]}, ${HEAT_ALPHA[lvl]})`
+      : null;
   const year = Number(monthKey.slice(0, 4));
   const month = Number(monthKey.slice(5, 7)) - 1;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -88,6 +123,8 @@ export function MonthGrid({
           const dateStr = `${monthKey}-${String(day).padStart(2, '0')}`;
           const raw = values[dateStr];
           const has = raw != null && raw > 0;
+          const lvl = has ? heatLevel(raw as number, monthMax) : 0;
+          const heat = heatBg(lvl);
           const isSel = dateStr === selectedDate;
           const isToday = dateStr === today;
           return (
@@ -102,14 +139,20 @@ export function MonthGrid({
                   flex: 1,
                   borderRadius: radiusSm,
                   borderWidth: isSel ? 2 : 1,
-                  borderColor: isSel ? acc : isToday ? colors.border2 : colors.border,
-                  backgroundColor: isSel ? colors.accentBg : has ? colors.bg3 : colors.bg2,
+                  borderColor: isSel ? acc : isToday ? colors.border2 : heat ? 'transparent' : colors.border,
+                  backgroundColor: isSel ? colors.accentBg : heat ?? (has ? colors.bg3 : colors.bg2),
                   alignItems: 'center',
                   justifyContent: 'center',
                   paddingVertical: 2,
                 }}
               >
-                <Text style={{ color: isToday ? acc : colors.text3, fontSize: 10, fontWeight: isToday ? '800' : '600' }}>
+                <Text
+                  style={{
+                    color: isToday ? acc : lvl >= 3 ? colors.text2 : colors.text3,
+                    fontSize: 10,
+                    fontWeight: isToday ? '800' : '600',
+                  }}
+                >
                   {day}
                 </Text>
                 <Text
@@ -123,6 +166,26 @@ export function MonthGrid({
           );
         })}
       </View>
+
+      {heatmap && accRgb && monthMax > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 8 }}>
+          <Text style={{ color: colors.text3, fontSize: 9, fontWeight: '600' }}>Less</Text>
+          {[0, 1, 2, 3, 4].map((l) => (
+            <View
+              key={l}
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 3,
+                backgroundColor: heatBg(l) ?? colors.bg2,
+                borderWidth: l === 0 ? 1 : 0,
+                borderColor: colors.border,
+              }}
+            />
+          ))}
+          <Text style={{ color: colors.text3, fontSize: 9, fontWeight: '600' }}>More</Text>
+        </View>
+      ) : null}
     </View>
   );
 }

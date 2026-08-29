@@ -277,7 +277,19 @@ export default function UtilityEntry() {
                   <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{m.name}</Text>
                   <Badge text={r.status} tone={tone as any} />
                 </View>
-                <Text style={{ color: colors.text3, fontSize: 11 }}>Due {fmtTk(due)}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                  <Text style={{ color: colors.text3, fontSize: 10, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                    Due
+                  </Text>
+                  <Text style={{ color: cr > 0 ? colors.green : colors.text, fontSize: 17, fontWeight: '900' }}>
+                    {fmtTk(due)}
+                  </Text>
+                  {cr > 0 ? (
+                    <Text style={{ color: colors.text3, fontSize: 11, textDecorationLine: 'line-through' }}>
+                      {fmtTk(perHeadInfo.perHead)}
+                    </Text>
+                  ) : null}
+                </View>
                 {cr > 0 ? (
                   <CarryTag
                     tone="green"

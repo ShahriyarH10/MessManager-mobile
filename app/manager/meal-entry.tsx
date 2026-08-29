@@ -185,7 +185,7 @@ export default function MealEntry() {
       <Card>
         <CardTitle icon="calendar">Month grid</CardTitle>
         <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 12 }}>
-          Tap any day to load it above. Numbers show total meals logged.
+          Tap any day to load it above. Darker cells = more meals that day.
         </Text>
         <MonthGrid
           monthKey={gridMonth}

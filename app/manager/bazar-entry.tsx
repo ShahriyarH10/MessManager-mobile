@@ -148,7 +148,7 @@ export default function BazarEntry() {
       <Card>
         <CardTitle icon="calendar">Month grid</CardTitle>
         <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 12 }}>
-          Tap any day to load it above. Numbers show total spend logged.
+          Tap any day to load it above. Darker cells = more spend that day.
         </Text>
         <MonthGrid
           monthKey={gridMonth}
