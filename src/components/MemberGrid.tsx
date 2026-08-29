@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput } from 'react-native';
 import { useTheme, radiusSm } from '../theme';
+import { Icon } from './Icon';
 import type { Member } from '../core/types';
 
 function num(t: string): number {
@@ -51,7 +52,7 @@ export function MemberValueGrid({
               backgroundColor: colors.bg2,
               borderColor: colors.border2,
               borderWidth: 1,
-              borderRadius: 8,
+              borderRadius: radiusSm,
               paddingHorizontal: 8,
             }}
           >
@@ -108,29 +109,36 @@ export function MemberMealGrid({
               ) : null}
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              {(['day', 'night'] as const).map((part) => (
-                <View key={part} style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text3, fontSize: 11, marginBottom: 3 }}>
-                    {part === 'day' ? '☀ Day' : '🌙 Night'}
-                  </Text>
-                  <TextInput
-                    value={values[m.id]?.[part] ?? '0'}
-                    onChangeText={(t) => onChange(m.id, part, t.replace(/[^0-9.]/g, ''))}
-                    keyboardType="decimal-pad"
-                    style={{
-                      backgroundColor: colors.bg2,
-                      borderColor: ab?.[part] ? colors.red : colors.border2,
-                      borderWidth: 1,
-                      borderRadius: 8,
-                      color: colors.text,
-                      fontSize: 15,
-                      paddingVertical: 8,
-                      paddingHorizontal: 10,
-                      textAlign: 'center',
-                    }}
-                  />
-                </View>
-              ))}
+              {(['day', 'night'] as const).map((part) => {
+                const tint = part === 'day' ? colors.blue : colors.amber;
+                const val = parseFloat(values[m.id]?.[part] || '0') || 0;
+                return (
+                  <View key={part} style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                      <Icon name={part} size={12} color={tint} />
+                      <Text style={{ color: tint, fontSize: 11, fontWeight: '700' }}>
+                        {part === 'day' ? 'Day' : 'Night'}
+                      </Text>
+                    </View>
+                    <TextInput
+                      value={values[m.id]?.[part] ?? '0'}
+                      onChangeText={(t) => onChange(m.id, part, t.replace(/[^0-9.]/g, ''))}
+                      keyboardType="decimal-pad"
+                      style={{
+                        backgroundColor: colors.bg2,
+                        borderColor: ab?.[part] ? colors.red : val > 0 ? tint : colors.border2,
+                        borderWidth: 1,
+                        borderRadius: radiusSm,
+                        color: colors.text,
+                        fontSize: 15,
+                        paddingVertical: 8,
+                        paddingHorizontal: 10,
+                        textAlign: 'center',
+                      }}
+                    />
+                  </View>
+                );
+              })}
             </View>
           </View>
         );

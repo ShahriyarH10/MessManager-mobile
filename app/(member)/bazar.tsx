@@ -6,6 +6,7 @@ import { saveMyBazar } from '../../src/lib/memberActions';
 import { todayStr, fmtTk, round2, monthLabelFromKey } from '../../src/core/format';
 import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../../src/components/ui';
 import { Button, Field, NumberField, TextField, DateField } from '../../src/components/form';
+import { MonthGrid } from '../../src/components/MonthGrid';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, BazarRow } from '../../src/core/types';
 
@@ -17,6 +18,7 @@ export default function BazarLog() {
   const [error, setError] = useState<string | null>(null);
 
   const [date, setDate] = useState(todayStr());
+  const [gridMonth, setGridMonth] = useState(todayStr().slice(0, 7));
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -74,6 +76,22 @@ export default function BazarLog() {
         .reduce((s, r) => s + Number((r.bazar || {})[member.name] || 0), 0),
     );
   }, [rows, member]);
+
+  useEffect(() => {
+    if (date) setGridMonth(date.slice(0, 7));
+  }, [date]);
+
+  const myBazarByDate = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (!member) return out;
+    rows
+      .filter((r) => String(r.date || '').startsWith(gridMonth))
+      .forEach((r) => {
+        const v = Number((r.bazar || {})[member.name] || 0);
+        if (v > 0) out[String(r.date)] = round2(v);
+      });
+    return out;
+  }, [rows, member, gridMonth]);
 
   if (loading && !member) return <Loading label="Loading bazar log…" />;
   if (error && !member)
@@ -137,6 +155,22 @@ export default function BazarLog() {
           </Field>
           <Button label="Save my bazar" onPress={onSave} busy={saving} />
         </View>
+      </Card>
+
+      <Card>
+        <CardTitle icon="calendar">Month grid</CardTitle>
+        <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 12 }}>
+          Your spend by day. Tap a date to edit it above.
+        </Text>
+        <MonthGrid
+          monthKey={gridMonth}
+          onMonthChange={setGridMonth}
+          values={myBazarByDate}
+          selectedDate={date}
+          onSelectDay={setDate}
+          format={(n) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(Math.round(n)))}
+          accent={colors.green}
+        />
       </Card>
 
       <Card>

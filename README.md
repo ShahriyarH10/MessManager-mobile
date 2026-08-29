@@ -11,7 +11,13 @@ Web app lives in `../Mess-Managements git`.
 ## Status — member **and** manager apps are feature-complete
 
 Native Ionicons throughout (no emoji), platform ripple/press feedback + haptics,
-grouped list rows, offline-aware data.
+grouped list rows, offline-aware data. Consistent colour language (day = blue,
+night = amber). Tappable month-grid calendars on the meal / bazar entry screens
+and the member bazar log; collapsible settlement breakdown + a floating
+"today's meals" bubble on the member dashboard.
+
+Notifications: a meal change by anyone raises a local push for **every** member;
+any edit by a member or sub-manager shows in the manager's *Member Updates* feed.
 
 | Area | State |
 |---|---|
@@ -39,6 +45,11 @@ npm run test:settlement  # settlement-formula parity check (pure Node)
 ```
 
 ---
+
+## Deploy / distribute
+
+See **[DEPLOY.md](DEPLOY.md)** — EAS Build (cloud, no Android Studio / Mac) to a
+sideloadable APK or the Play Store, plus over-the-air JS updates.
 
 ## Run it (Expo Go)
 

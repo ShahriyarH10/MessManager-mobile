@@ -271,6 +271,18 @@ export async function dbGetNotifications(statusFilter?: string): Promise<Notific
   return (data as NotificationRow[]) || [];
 }
 
+/** Most recent notifications (any status) — used by the notification poller. */
+export async function dbGetRecentNotifications(limit = 20): Promise<NotificationRow[]> {
+  const { data, error } = await getClient()
+    .from('notifications')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as NotificationRow[]) || [];
+}
+
 export async function dbUpdateNotifStatus(id: string, status: string): Promise<void> {
   const { error } = await getClient().from('notifications').update({ status }).eq('id', id);
   if (error) throw error;

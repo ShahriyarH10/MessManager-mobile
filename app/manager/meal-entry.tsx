@@ -7,6 +7,9 @@ import { mealPartsFromObj, mealMemberTotal } from '../../src/core/meals';
 import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../../src/components/ui';
 import { Button, Field, DateField } from '../../src/components/form';
 import { MemberMealGrid } from '../../src/components/MemberGrid';
+import { MonthGrid } from '../../src/components/MonthGrid';
+import { Icon } from '../../src/components/Icon';
+import { mealRowTotal } from '../../src/core/meals';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, MealRow } from '../../src/core/types';
 
@@ -16,10 +19,12 @@ export default function MealEntry() {
   const { colors } = useTheme();
   const [members, setMembers] = useState<Member[]>([]);
   const [recent, setRecent] = useState<MealRow[]>([]);
+  const [allMeals, setAllMeals] = useState<MealRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [date, setDate] = useState(todayStr());
+  const [gridMonth, setGridMonth] = useState(todayStr().slice(0, 7));
   const [vals, setVals] = useState<Vals>({});
   const [absent, setAbsent] = useState<Record<string, { day?: boolean; night?: boolean }>>({});
   const [saving, setSaving] = useState(false);
@@ -29,7 +34,8 @@ export default function MealEntry() {
     try {
       const [ms, meals] = await Promise.all([dbGetMembers(), dbGetMeals()]);
       setMembers(ms);
-      setRecent(meals.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8));
+      setAllMeals(meals);
+      setRecent([...meals].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8));
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load.');
     } finally {
@@ -53,15 +59,12 @@ export default function MealEntry() {
       setAbsent(ab);
       const next: Vals = {};
       members.forEach((m) => {
+        // No entry for this day yet -> start everyone at 0 (use the quick-fill
+        // buttons to bulk-set). Only pre-fill from a saved row.
         const p = mealPartsFromObj(row?.meals || {}, m.name);
-        if (row) {
-          next[m.id] = { day: String(p.day || 0), night: String(p.night || 0) };
-        } else {
-          next[m.id] = {
-            day: ab[m.id]?.day ? '0' : String(m.meal_default_day ?? 1),
-            night: ab[m.id]?.night ? '0' : String(m.meal_default_night ?? 1),
-          };
-        }
+        next[m.id] = row
+          ? { day: String(p.day || 0), night: String(p.night || 0) }
+          : { day: '0', night: '0' };
       });
       setVals(next);
     });
@@ -69,6 +72,20 @@ export default function MealEntry() {
       active = false;
     };
   }, [date, members]);
+
+  useEffect(() => {
+    if (date) setGridMonth(date.slice(0, 7));
+  }, [date]);
+
+  const mealsByDate = useMemo(() => {
+    const out: Record<string, number> = {};
+    allMeals
+      .filter((r) => String(r.date || '').startsWith(gridMonth))
+      .forEach((r) => {
+        out[String(r.date)] = round2(mealRowTotal(r.meals || {}));
+      });
+    return out;
+  }, [allMeals, gridMonth]);
 
   const totals = useMemo(() => {
     let d = 0;
@@ -154,7 +171,7 @@ export default function MealEntry() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
           <StatCard label="Total" value={totals.total} accent={colors.accent} />
           <StatCard label="Day" value={totals.day} accent={colors.blue} />
-          <StatCard label="Night" value={totals.night} accent={colors.purple} />
+          <StatCard label="Night" value={totals.night} accent={colors.amber} />
           <StatCard label="Eating" value={`${totals.eating}/${members.length}`} accent={colors.green} />
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
@@ -163,6 +180,22 @@ export default function MealEntry() {
           <QuickBtn label="Night → 1" onPress={() => setAll('night', '1')} />
           <QuickBtn label="Clear" onPress={() => setAll('both', '0')} />
         </View>
+      </Card>
+
+      <Card>
+        <CardTitle icon="calendar">Month grid</CardTitle>
+        <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 12 }}>
+          Tap any day to load it above. Numbers show total meals logged.
+        </Text>
+        <MonthGrid
+          monthKey={gridMonth}
+          onMonthChange={setGridMonth}
+          values={mealsByDate}
+          selectedDate={date}
+          onSelectDay={setDate}
+          format={(n) => String(round2(n))}
+          accent={colors.blue}
+        />
       </Card>
 
       <Card>
@@ -203,7 +236,7 @@ export default function MealEntry() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                   <Text style={{ color: colors.text2, fontSize: 13, fontWeight: '700' }}>{round2(tot)} meals</Text>
                   <Pressable onPress={() => del(r.id)} hitSlop={8}>
-                    <Text style={{ color: colors.red, fontSize: 15 }}>✕</Text>
+                    <Icon name="trash" size={16} color={colors.red} />
                   </Pressable>
                 </View>
               </View>

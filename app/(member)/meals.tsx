@@ -14,6 +14,7 @@ import { mealPartsFromObj, mealMemberTotal, memberMonthCalendar } from '../../sr
 import { todayStr, monthLabelFromKey, MONTHS, round2 } from '../../src/core/format';
 import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../../src/components/ui';
 import { Button, Field, NumberField, TextField, DateField } from '../../src/components/form';
+import { Icon } from '../../src/components/Icon';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, MealRow } from '../../src/core/types';
 
@@ -249,7 +250,7 @@ export default function MealLog() {
                       </Text>
                     </View>
                     <Pressable onPress={() => cancelAbs(a.id)} hitSlop={8}>
-                      <Text style={{ color: colors.red, fontWeight: '700' }}>✕</Text>
+                      <Icon name="trash" size={15} color={colors.red} />
                     </Pressable>
                   </View>
                 );
@@ -377,7 +378,7 @@ function CalendarModal({
               {MONTHS[monthIdx]} {calKey.slice(0, 4)}
             </Text>
             <Pressable onPress={onClose} hitSlop={10}>
-              <Text style={{ color: colors.text3, fontSize: 18 }}>✕</Text>
+              <Icon name="close" size={20} color={colors.text3} />
             </Pressable>
           </View>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
@@ -406,8 +407,10 @@ function CalendarModal({
                     {d.hasMeal ? d.total : '—'}
                   </Text>
                   {d.hasMeal ? (
-                    <Text style={{ color: colors.text3, fontSize: 8 }}>
-                      D{d.dayMeals} N{d.nightMeals}
+                    <Text style={{ fontSize: 8 }}>
+                      <Text style={{ color: colors.blue }}>D{d.dayMeals}</Text>
+                      <Text style={{ color: colors.text3 }}> </Text>
+                      <Text style={{ color: colors.amber }}>N{d.nightMeals}</Text>
                     </Text>
                   ) : null}
                 </View>

@@ -6,6 +6,8 @@ import { todayStr, fmtTk, round2 } from '../../src/core/format';
 import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../../src/components/ui';
 import { Button, Field, DateField } from '../../src/components/form';
 import { MemberValueGrid } from '../../src/components/MemberGrid';
+import { MonthGrid } from '../../src/components/MonthGrid';
+import { Icon } from '../../src/components/Icon';
 import { useTheme } from '../../src/theme';
 import type { Member, BazarRow } from '../../src/core/types';
 
@@ -13,10 +15,12 @@ export default function BazarEntry() {
   const { colors } = useTheme();
   const [members, setMembers] = useState<Member[]>([]);
   const [recent, setRecent] = useState<BazarRow[]>([]);
+  const [allBazar, setAllBazar] = useState<BazarRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [date, setDate] = useState(todayStr());
+  const [gridMonth, setGridMonth] = useState(todayStr().slice(0, 7));
   const [vals, setVals] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -25,7 +29,8 @@ export default function BazarEntry() {
     try {
       const [ms, bazar] = await Promise.all([dbGetMembers(), dbGetBazar()]);
       setMembers(ms);
-      setRecent(bazar.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8));
+      setAllBazar(bazar);
+      setRecent([...bazar].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8));
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load.');
     } finally {
@@ -58,6 +63,22 @@ export default function BazarEntry() {
     () => round2(members.reduce((s, m) => s + parseFloat(vals[m.id] || '0'), 0)),
     [vals, members],
   );
+
+  useEffect(() => {
+    if (date) setGridMonth(date.slice(0, 7));
+  }, [date]);
+
+  const bazarByDate = useMemo(() => {
+    const out: Record<string, number> = {};
+    allBazar
+      .filter((r) => String(r.date || '').startsWith(gridMonth))
+      .forEach((r) => {
+        out[String(r.date)] = round2(
+          Object.values(r.bazar || {}).reduce((s, v) => s + Number(v || 0), 0),
+        );
+      });
+    return out;
+  }, [allBazar, gridMonth]);
 
   if (loading && members.length === 0) return <Loading label="Loading…" />;
   if (error && members.length === 0)
@@ -125,6 +146,22 @@ export default function BazarEntry() {
       </Card>
 
       <Card>
+        <CardTitle icon="calendar">Month grid</CardTitle>
+        <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 12 }}>
+          Tap any day to load it above. Numbers show total spend logged.
+        </Text>
+        <MonthGrid
+          monthKey={gridMonth}
+          onMonthChange={setGridMonth}
+          values={bazarByDate}
+          selectedDate={date}
+          onSelectDay={setDate}
+          format={(n) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(Math.round(n)))}
+          accent={colors.green}
+        />
+      </Card>
+
+      <Card>
         <CardTitle>Members</CardTitle>
         <MemberValueGrid
           members={members}
@@ -159,7 +196,7 @@ export default function BazarEntry() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                   <Text style={{ color: colors.green, fontSize: 13, fontWeight: '700' }}>{fmtTk(round2(tot))}</Text>
                   <Pressable onPress={() => del(r.id)} hitSlop={8}>
-                    <Text style={{ color: colors.red, fontSize: 15 }}>✕</Text>
+                    <Icon name="trash" size={16} color={colors.red} />
                   </Pressable>
                 </View>
               </View>

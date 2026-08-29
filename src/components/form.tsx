@@ -250,7 +250,7 @@ export function Badge({ text, tone }: { text: string; tone: 'green' | 'amber' | 
   const { colors } = useTheme();
   const map = {
     green: [colors.green, colors.greenBg],
-    amber: [colors.amber, colors.accentBg],
+    amber: [colors.amber, colors.amberBg],
     red: [colors.red, colors.redBg],
     blue: [colors.blue, colors.blueBg],
     muted: [colors.text3, colors.bg3],

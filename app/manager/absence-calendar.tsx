@@ -90,8 +90,8 @@ export default function AbsenceCalendar() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           <Legend color={colors.green} label="All ate" />
           <Legend color={colors.red} label="All off" />
-          <Legend color={colors.amber} label="Day off" />
-          <Legend color={colors.accent} label="Night off" />
+          <Legend color={colors.blue} label="Day off" />
+          <Legend color={colors.amber} label="Night off" />
         </View>
 
         <View style={{ flexDirection: 'row' }}>
@@ -137,7 +137,7 @@ export default function AbsenceCalendar() {
                         const col = avatarCol(m.id);
                         const isDayOff = c.dayOff.includes(m);
                         const isNightOff = c.nightOff.includes(m);
-                        const ring = isDayOff ? colors.amber : isNightOff ? colors.accent : colors.red;
+                        const ring = isDayOff ? colors.blue : isNightOff ? colors.amber : colors.red;
                         return (
                           <View
                             key={idx}

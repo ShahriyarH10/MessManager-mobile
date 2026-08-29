@@ -2,7 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, AppState, type AppStateStatus } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { configureNotifications, checkForNewBroadcasts, registerPushToken } from '../lib/push';
+import {
+  configureNotifications,
+  checkForNewBroadcasts,
+  checkForMealUpdates,
+  registerPushToken,
+} from '../lib/push';
 import { onStaleChange, wasStaleServed, subscribeConnectivity } from '../lib/offline';
 import { useTheme } from '../theme';
 import { Icon } from './Icon';
@@ -34,7 +39,10 @@ export function AppServices() {
       return;
     }
     registerPushToken().catch(() => {});
-    const run = () => checkForNewBroadcasts().catch(() => {});
+    const run = () => {
+      checkForNewBroadcasts().catch(() => {});
+      checkForMealUpdates().catch(() => {});
+    };
     run();
     timer.current = setInterval(run, POLL_MS);
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {

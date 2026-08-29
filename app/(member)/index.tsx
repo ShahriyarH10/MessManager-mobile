@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, RefreshControl, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMemberDashboard } from '../../src/hooks/useMemberDashboard';
 import { useAuth } from '../../src/context/AuthContext';
 import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../../src/components/ui';
 import { Icon } from '../../src/components/Icon';
-import { useTheme, radiusSm, avatarCol } from '../../src/theme';
+import { useTheme, radius, radiusSm, avatarCol } from '../../src/theme';
 import { fmtTk, initials } from '../../src/core/format';
 
 export default function Dashboard() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { signOut, mess } = useAuth();
   const { data, loading, error, refresh } = useMemberDashboard();
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   if (loading && !data) return <Loading label="Loading your dashboard…" />;
 
@@ -58,7 +61,10 @@ export default function Dashboard() {
     { label: 'Carry fwd', value: calc.messCredit },
   ].filter((c) => c.value > 0);
 
+  const todayTotal = data.today.totalDay + data.today.totalNight;
+
   return (
+    <View style={{ flex: 1 }}>
     <ScreenScroll
       title="My Dashboard"
       subtitle={`${data.member.name} · ${data.monthLabel}`}
@@ -125,9 +131,27 @@ export default function Dashboard() {
         ) : null}
       </Card>
 
-      {/* Settlement breakdown */}
+      {/* Settlement breakdown — collapsed by default */}
       <Card>
-        <CardTitle>Settlement breakdown</CardTitle>
+        <Pressable
+          onPress={() => setShowBreakdown((v) => !v)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}
+        >
+          <Icon name="monthlyLog" size={16} color={colors.text2} />
+          <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', flex: 1 }}>
+            Settlement breakdown
+          </Text>
+          <Text style={{ color: netColor, fontSize: 13, fontWeight: '800', marginRight: 4 }}>{netLabel}</Text>
+          <View style={{ transform: [{ rotate: showBreakdown ? '90deg' : '0deg' }] }}>
+            <Icon name="chevron" size={16} color={colors.text3} />
+          </View>
+        </Pressable>
+        {!showBreakdown ? (
+          <Text style={{ color: colors.text3, fontSize: 11, marginTop: 8 }}>Tap to see how this is calculated</Text>
+        ) : null}
+
+        {showBreakdown ? (
+        <View style={{ marginTop: 12 }}>
         <BreakdownRow label="Meal cost" hint={`${calc.memberMeals} meals × ${fmtTk(calc.mealRate)}`} value={`+ ${fmtTk(calc.mealCost)}`} color={colors.red} />
         <BreakdownRow label="Khala share" hint={`${fmtTk(calc.khalaTotal)} ÷ ${data.memberCount}`} value={`+ ${fmtTk(calc.khalaShare)}`} color={colors.red} />
         <BreakdownRow label="Other share" hint={`${fmtTk(calc.otherTotal)} ÷ ${data.memberCount}`} value={`+ ${fmtTk(calc.otherShare)}`} color={colors.red} />
@@ -153,6 +177,8 @@ export default function Dashboard() {
           <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>Net payable</Text>
           <Text style={{ color: netColor, fontWeight: '800', fontSize: 15 }}>{netLabel}</Text>
         </View>
+        </View>
+        ) : null}
       </Card>
 
       {/* Mess-wide stats */}
@@ -176,8 +202,8 @@ export default function Dashboard() {
                 <Text style={{ color: colors.blue, fontSize: 13, fontWeight: '700' }}>{today.totalDay} day</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Icon name="night" size={15} color={colors.accent} />
-                <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '700' }}>{today.totalNight} night</Text>
+                <Icon name="night" size={15} color={colors.amber} />
+                <Text style={{ color: colors.amber, fontSize: 13, fontWeight: '700' }}>{today.totalNight} night</Text>
               </View>
             </View>
             <View
@@ -278,6 +304,36 @@ export default function Dashboard() {
         <Text style={{ color: colors.text3, fontSize: 13 }}>Sign out</Text>
       </Pressable>
     </ScreenScroll>
+
+    {data.today.hasEntry ? (
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          right: 16,
+          bottom: insets.bottom + 18,
+          backgroundColor: colors.accent,
+          borderRadius: radius,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          shadowColor: '#000',
+          shadowOpacity: 0.25,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 6,
+        }}
+      >
+        <Icon name="meals" size={16} color="#1a1816" />
+        <Text style={{ color: '#1a1816', fontWeight: '900', fontSize: 15 }}>{todayTotal}</Text>
+        <Text style={{ color: '#1a1816', fontWeight: '700', fontSize: 11, opacity: 0.75 }}>
+          {data.today.isNextDay ? "tomorrow's meals" : "today's meals"}
+        </Text>
+      </View>
+    ) : null}
+    </View>
   );
 }
 

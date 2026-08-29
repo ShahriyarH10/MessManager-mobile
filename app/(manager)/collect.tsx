@@ -61,11 +61,27 @@ export default function Collect() {
   }, [load]);
 
   const owing = useMemo(() => (cd?.rows ?? []).filter((r) => r.total > 0.01 || r.prevDue > 0.01), [cd]);
-  const changeRows = useMemo(
-    () => (cd?.rows ?? []).filter((r) => r.pendingChange > 0.01 || r.existingChangeCredit > 0.01),
-    [cd],
-  );
-  const creditRows = useMemo(() => (cd?.rows ?? []).filter((r) => r.netPayable < -0.01), [cd]);
+
+  // Every reason the mess has to hand money back to a member, folded into one row
+  // per person: an overpayment from a Collect action (pending change) and/or a
+  // negative settlement (meal surplus the mess owes). Same member, one card.
+  const returnRows = useMemo(() => {
+    return (cd?.rows ?? [])
+      .map((r) => {
+        const changeRemaining = round2(Math.max(0, r.pendingChange - r.existingChangeCredit));
+        const settlementOwed = round2(Math.abs(Math.min(0, r.netPayable)));
+        const owesRemaining = round2(Math.max(0, settlementOwed - r.existingCarryCredit));
+        return {
+          r,
+          changeRemaining,
+          owesRemaining,
+          total: round2(changeRemaining + owesRemaining),
+          alreadyCarried: round2(r.existingChangeCredit + r.existingCarryCredit),
+        };
+      })
+      .filter((x) => x.total > 0.01);
+  }, [cd]);
+  type ReturnRow = (typeof returnRows)[number];
 
   if (loading && !cd) return <Loading label="Loading…" />;
   if (error && !cd)
@@ -127,33 +143,36 @@ export default function Collect() {
     }
   };
 
-  const onChange = async (r: CollectRow) => {
+  // One "return" action per member. Cash the manager hands over is applied to the
+  // overpayment first, then to the settlement the mess owes; whatever is left of
+  // either carries to next month. Both writes run sequentially (each reads fresh
+  // state) and touch separate bill keys, so ordering them is safe.
+  const onReturn = async (rr: ReturnRow) => {
     if (!cd) return;
+    const { r } = rr;
+    let cashLeft = Math.max(0, parseFloat(cashBack[r.id] || '0') || 0);
     setSavingId(r.id);
     try {
-      const { cashNow, carry } = await saveChangeRow(
-        r.name, month, year, key, cd.nextMonth, cd.nextYear, cd.nextKey, r,
-        parseFloat(cashBack[r.id] || '0'),
-      );
+      let cashReturned = 0;
+      let carried = 0;
+      if (rr.changeRemaining > 0.01) {
+        const give = Math.min(cashLeft, rr.changeRemaining);
+        const res = await saveChangeRow(r.name, month, year, key, cd.nextMonth, cd.nextYear, cd.nextKey, r, give);
+        cashReturned = round2(cashReturned + res.cashNow);
+        carried = round2(carried + res.carry);
+        cashLeft = round2(Math.max(0, cashLeft - res.cashNow));
+      }
+      if (rr.owesRemaining > 0.01) {
+        const give = Math.min(cashLeft, rr.owesRemaining);
+        const res = await saveCreditRow(r.name, month, year, key, cd.nextMonth, cd.nextYear, cd.nextKey, r, give);
+        cashReturned = round2(cashReturned + res.cashNow);
+        carried = round2(carried + res.carry);
+      }
       await load();
-      Alert.alert('Change resolved', `Cash returned: ${fmtTk(cashNow)}\nCarried to ${MONTHS[cd.nextMonth]}: ${fmtTk(carry)}`);
-    } catch (e: any) {
-      Alert.alert('Error', e?.message ?? 'Failed.');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const onCredit = async (r: CollectRow) => {
-    if (!cd) return;
-    setSavingId(r.id);
-    try {
-      const { cashNow, carry } = await saveCreditRow(
-        r.name, month, year, key, cd.nextMonth, cd.nextYear, cd.nextKey, r,
-        parseFloat(cashBack[r.id] || '0'),
+      Alert.alert(
+        'Return recorded',
+        `Cash returned: ${fmtTk(cashReturned)}\nCarried to ${MONTHS[cd.nextMonth]} ${cd.nextYear}: ${fmtTk(carried)}`,
       );
-      await load();
-      Alert.alert('Credit settled', `Cash handed back: ${fmtTk(cashNow)}\nCarried to ${MONTHS[cd.nextMonth]}: ${fmtTk(carry)}`);
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Failed.');
     } finally {
@@ -176,7 +195,7 @@ export default function Collect() {
         Split order: previous due → rent → utility → meal. Extra becomes change.
       </Text>
 
-      {owing.length === 0 && changeRows.length === 0 && creditRows.length === 0 ? (
+      {owing.length === 0 && returnRows.length === 0 ? (
         <Card>
           <EmptyState icon="present" text={`All settled for ${MONTHS[month]} ${year}`} />
         </Card>
@@ -265,60 +284,32 @@ export default function Collect() {
         );
       })}
 
-      {changeRows.length > 0 ? (
+      {returnRows.length > 0 ? (
         <>
-          <CardTitle icon="share">Return change</CardTitle>
-          {changeRows.map((r) => {
-            const remaining = round2(Math.max(0, r.pendingChange - r.existingChangeCredit));
-            const cash = parseFloat(cashBack[r.id] || '0');
-            const carry = round2(Math.max(0, remaining - Math.min(cash, remaining)));
+          <CardTitle icon="fund">Return amount to these members</CardTitle>
+          {returnRows.map((rr) => {
+            const { r } = rr;
+            const cash = parseFloat(cashBack[r.id] || '0') || 0;
+            const carry = round2(Math.max(0, rr.total - Math.min(cash, rr.total)));
+            const parts: string[] = [];
+            if (rr.changeRemaining > 0.01) parts.push(`${fmtTk(rr.changeRemaining)} overpaid`);
+            if (rr.owesRemaining > 0.01) parts.push(`${fmtTk(rr.owesRemaining)} mess owes`);
+            if (rr.alreadyCarried > 0) parts.push(`${fmtTk(rr.alreadyCarried)} already carried`);
             return (
-              <Card key={'chg' + r.id}>
+              <Card key={'ret' + r.id}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>{r.name}</Text>
-                  <Text style={{ color: colors.accent, fontWeight: '800' }}>{fmtTk(remaining)} to return</Text>
+                  <Text style={{ color: colors.green, fontWeight: '800' }}>{fmtTk(rr.total)} to return</Text>
                 </View>
-                <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }}>
-                  Overpaid {fmtTk(r.pendingChange)}
-                  {r.existingChangeCredit > 0 ? ` · ${fmtTk(r.existingChangeCredit)} already carried` : ''}
-                </Text>
+                {parts.length > 0 ? (
+                  <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }}>{parts.join(' · ')}</Text>
+                ) : null}
                 <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 10 }}>
                   <CashInput value={cashBack[r.id] ?? ''} onChange={(x) => setCashBack((p) => ({ ...p, [r.id]: x }))} colors={colors} />
-                  <Button label="Save" onPress={() => onChange(r)} busy={savingId === r.id} style={{ paddingHorizontal: 22 }} />
+                  <Button label="Save" onPress={() => onReturn(rr)} busy={savingId === r.id} style={{ paddingHorizontal: 22 }} />
                 </View>
                 <Text style={{ color: colors.blue, fontSize: 11, marginTop: 8 }}>
                   {carry > 0 ? `Carries ${fmtTk(carry)} to ${nextLabel}` : 'Fully returned'} · ৳0 = carry all
-                </Text>
-              </Card>
-            );
-          })}
-        </>
-      ) : null}
-
-      {creditRows.length > 0 ? (
-        <>
-          <CardTitle icon="fund">Mess owes these members</CardTitle>
-          {creditRows.map((r) => {
-            const messOwes = round2(Math.abs(r.netPayable));
-            const remaining = round2(Math.max(0, messOwes - r.existingCarryCredit));
-            const cash = parseFloat(cashBack[r.id] || '0');
-            const carry = round2(Math.max(0, remaining - Math.min(cash, remaining)));
-            return (
-              <Card key={'cc' + r.id}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>{r.name}</Text>
-                  <Text style={{ color: colors.green, fontWeight: '800' }}>{fmtTk(remaining)} owed</Text>
-                </View>
-                <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }}>
-                  Total {fmtTk(messOwes)}
-                  {r.existingCarryCredit > 0 ? ` · ${fmtTk(r.existingCarryCredit)} already carried` : ''}
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 10 }}>
-                  <CashInput value={cashBack[r.id] ?? ''} onChange={(x) => setCashBack((p) => ({ ...p, [r.id]: x }))} colors={colors} />
-                  <Button label="Save" onPress={() => onCredit(r)} busy={savingId === r.id} style={{ paddingHorizontal: 22 }} />
-                </View>
-                <Text style={{ color: colors.blue, fontSize: 11, marginTop: 8 }}>
-                  {carry > 0 ? `Carries ${fmtTk(carry)} to ${nextLabel}` : 'Fully settled'} · ৳0 = carry all
                 </Text>
               </Card>
             );

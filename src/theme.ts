@@ -10,6 +10,7 @@ export type Palette = {
   accent2: string;
   amber: string;
   accentBg: string;
+  amberBg: string;
   green: string;
   greenBg: string;
   red: string;
@@ -35,7 +36,8 @@ export type Palette = {
 const brand = {
   accent: '#d4a853',
   accent2: '#b8914a',
-  amber: '#d4a853',
+  amber: '#e0913a',
+  amberBg: 'rgba(224,145,58,0.16)',
   accentBg: 'rgba(212,168,83,0.14)',
   green: '#4caf82',
   greenBg: 'rgba(76,175,130,0.14)',
@@ -77,8 +79,8 @@ export const light: Palette = {
   text3: '#9a9690',
 };
 
-export const radius = 13;
-export const radiusSm = 8;
+export const radius = 16;
+export const radiusSm = 10;
 
 export function useTheme(): { colors: Palette; scheme: 'light' | 'dark' } {
   const scheme = useColorScheme() === 'light' ? 'light' : 'dark';

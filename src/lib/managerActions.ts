@@ -9,10 +9,12 @@ import {
   dbUpsertRent,
   dbUpsertUtility,
   dbGetUtilityMonth,
+  dbSaveNotification,
   isMonthLocked,
   logAudit,
 } from './db';
-import { round2, monthLabelFromKey } from '../core/format';
+import { getSession } from './session';
+import { round2, monthLabelFromKey, todayStr } from '../core/format';
 import { UTIL_PREPAID_KEYS, UTIL_POSTPAID_KEYS, utilTotalFromBills } from '../core/settlement';
 import type { Member, RentEntry } from '../core/types';
 
@@ -21,6 +23,25 @@ export class LockedMonthError extends Error {}
 async function assertUnlocked(key: string) {
   if (await isMonthLocked(key)) {
     throw new LockedMonthError(`${monthLabelFromKey(key)} is locked — unlock it first.`);
+  }
+}
+
+/** True when the signed-in user is a sub-manager (delegate), not the full manager. */
+function isDelegate(): boolean {
+  return (getSession()?.user.role || 'member') === 'sub_manager';
+}
+
+/** Best-effort activity notification (feed + push). Never blocks the write. */
+async function notifyChange(
+  type: string,
+  date: string,
+  note: string,
+  data: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    await dbSaveNotification({ type, date, data, note, status: 'new' });
+  } catch {
+    /* notifications are best-effort */
   }
 }
 
@@ -40,6 +61,16 @@ export async function saveMeals(
   });
   await dbUpsertMeals(date, meals);
   await logAudit('update', 'meal', date, `Meals saved for ${date}`);
+  const total = round2(
+    members.reduce((s, m) => s + Number(meals[m.name] || 0), 0),
+  );
+  // Meal-sheet changes notify every member (local push).
+  await notifyChange(
+    'meal_edit',
+    date,
+    `${isDelegate() ? 'Sub-manager' : 'Manager'} updated the meal sheet for ${date} · ${total} total`,
+    { total, byManager: true },
+  );
 }
 
 /** members -> { [memberId]: amount } */
@@ -55,6 +86,7 @@ export async function saveBazar(
   });
   await dbUpsertBazar(date, bazar);
   await logAudit('update', 'bazar', date, `Bazar saved for ${date}`);
+  if (isDelegate()) await notifyChange('sub_edit_bazar', date, `Sub-manager edited the bazar sheet for ${date}`);
 }
 
 export async function saveRent(
@@ -71,6 +103,8 @@ export async function saveRent(
   });
   await dbUpsertRent(month, year, key, entries);
   await logAudit('update', 'rent', key, `Rent saved for ${monthLabelFromKey(key)}`);
+  if (isDelegate())
+    await notifyChange('sub_edit_rent', todayStr(), `Sub-manager edited rent for ${monthLabelFromKey(key)}`);
 }
 
 /** type 'prepaid' -> {elec,gas,wifi}; 'postpaid' -> {khala,other} */
@@ -90,6 +124,8 @@ export async function saveUtilityBills(
   });
   await dbUpsertUtility(month, year, key, bills, rec?.payments || {});
   await logAudit('update', 'utility', key, `${type} bills saved for ${monthLabelFromKey(key)}`);
+  if (isDelegate())
+    await notifyChange('sub_edit_utility', todayStr(), `Sub-manager edited ${type} bills for ${monthLabelFromKey(key)}`);
 }
 
 export async function saveUtilityPayments(
@@ -108,6 +144,8 @@ export async function saveUtilityPayments(
   });
   await dbUpsertUtility(month, year, key, rec?.bills || {}, payments);
   await logAudit('update', 'utility', key, `Utility payments saved for ${monthLabelFromKey(key)}`);
+  if (isDelegate())
+    await notifyChange('sub_edit_utility', todayStr(), `Sub-manager updated utility payments for ${monthLabelFromKey(key)}`);
 }
 
 /** perHead due for a settlement month = current prepaid + previous postpaid, ÷ members. */

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, RefreshControl, Alert } from 'react-native';
 import { dbGetNotifications, dbUpdateNotifStatus, type NotificationRow } from '../../src/lib/db';
+import { getSession } from '../../src/lib/session';
 import { ScreenScroll, Card, Loading, Centered, EmptyState } from '../../src/components/ui';
 import { Badge } from '../../src/components/form';
 import { Icon, type IconName } from '../../src/components/Icon';
@@ -15,6 +16,12 @@ const TYPE_LABEL: Record<string, { icon: IconName; label: string }> = {
   meal_request: { icon: 'meals', label: 'meal entry' },
   bazar_request: { icon: 'bazar', label: 'bazar entry' },
   bill_payment: { icon: 'utility', label: 'utility / rent entry' },
+  meal_edit: { icon: 'meals', label: 'updated the meal sheet' },
+  sub_edit_meal: { icon: 'meals', label: 'edited meals' },
+  sub_edit_bazar: { icon: 'bazar', label: 'edited bazar' },
+  sub_edit_rent: { icon: 'rent', label: 'edited rent' },
+  sub_edit_utility: { icon: 'utility', label: 'edited utility' },
+  sub_edit_member: { icon: 'members', label: 'changed member records' },
 };
 
 export default function ManagerNotifications() {
@@ -26,7 +33,10 @@ export default function ManagerNotifications() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      setRows(await dbGetNotifications());
+      const myId = getSession()?.user.memberId;
+      const all = await dbGetNotifications();
+      // Hide the manager's own edits — this feed is about what everyone else does.
+      setRows(all.filter((r) => r.from_id !== myId));
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load.');
     } finally {

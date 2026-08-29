@@ -5,6 +5,7 @@ import { useMessData } from '../../src/hooks/useMessData';
 import { useAuth } from '../../src/context/AuthContext';
 import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../../src/components/ui';
 import { Badge } from '../../src/components/form';
+import { Icon, type IconName } from '../../src/components/Icon';
 import { useTheme, radiusSm, avatarCol } from '../../src/theme';
 import { MONTHS, fmtTk, round2, monthKey, thisMonth, previousMonth, todayStr, initials } from '../../src/core/format';
 import { mealMemberTotal, mealPartsFromObj } from '../../src/core/meals';
@@ -158,10 +159,10 @@ export default function ManagerDashboard() {
         </CardTitle>
         {v.todayRec ? (
           <>
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-              <StatCard label="Day" value={v.tDay} accent={colors.blue} />
-              <StatCard label="Night" value={v.tNight} accent={colors.amber} />
-              <StatCard label="Total" value={round2(v.tDay + v.tNight)} />
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              <MiniStat label="Day" value={v.tDay} color={colors.blue} icon="day" />
+              <MiniStat label="Night" value={v.tNight} color={colors.amber} icon="night" />
+              <MiniStat label="Total" value={round2(v.tDay + v.tNight)} color={colors.text} />
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {v.members.map((m) => {
@@ -277,6 +278,39 @@ export default function ManagerDashboard() {
         </Card>
       ) : null}
     </ScreenScroll>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  color,
+  icon,
+}: {
+  label: string;
+  value: number | string;
+  color: string;
+  icon?: IconName;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.bg3,
+        borderRadius: radiusSm,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        alignItems: 'center',
+        gap: 3,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        {icon ? <Icon name={icon} size={11} color={color} /> : null}
+        <Text style={{ color: colors.text3, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>{label}</Text>
+      </View>
+      <Text style={{ color, fontSize: 18, fontWeight: '800' }}>{value}</Text>
+    </View>
   );
 }
 
