@@ -8,6 +8,7 @@ import {
   checkForMealUpdates,
   registerPushToken,
 } from '../lib/push';
+import { registerBackgroundPoll, unregisterBackgroundPoll } from '../lib/backgroundPoll';
 import { onStaleChange, wasStaleServed, subscribeConnectivity } from '../lib/offline';
 import { useTheme } from '../theme';
 import { Icon } from './Icon';
@@ -25,6 +26,8 @@ export function AppServices() {
   const [stale, setStale] = useState(wasStaleServed());
   const [online, setOnline] = useState(true);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const running = useRef(false);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
     configureNotifications();
@@ -36,17 +39,41 @@ export function AppServices() {
   useEffect(() => {
     if (!user) {
       if (timer.current) clearInterval(timer.current);
+      unregisterBackgroundPoll();
       return;
     }
     registerPushToken().catch(() => {});
-    const run = () => {
-      checkForNewBroadcasts().catch(() => {});
-      checkForMealUpdates().catch(() => {});
+    registerBackgroundPoll();
+
+    // One poll at a time. On resume the OS can deliver a queued interval tick
+    // right after the AppState "active" event — without this guard both would
+    // poll at once and each would raise its own notification for the same row.
+    const run = async () => {
+      if (running.current) return;
+      running.current = true;
+      try {
+        await checkForNewBroadcasts();
+        await checkForMealUpdates();
+      } catch {
+        /* best effort */
+      } finally {
+        running.current = false;
+      }
     };
-    run();
-    timer.current = setInterval(run, POLL_MS);
+
+    const start = () => {
+      if (timer.current) clearInterval(timer.current);
+      run();
+      timer.current = setInterval(run, POLL_MS);
+    };
+
+    start();
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') run();
+      const wasActive = appState.current === 'active';
+      appState.current = s;
+      // Only on a real background -> foreground transition. Restart the interval
+      // so its next tick is a full POLL_MS away, not an overdue catch-up fire.
+      if (s === 'active' && !wasActive) start();
     });
     return () => {
       if (timer.current) clearInterval(timer.current);

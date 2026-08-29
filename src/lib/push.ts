@@ -18,6 +18,14 @@ const MEAL_SEEN_KEY = 'mm_push_seen_meal_updates';
 
 let configured = false;
 
+/**
+ * Guards against two polls running at once (app-resume + the catch-up interval
+ * tick can both fire within the same second). Without this, both reads see the
+ * same "seen" list and each fires its own notification for the new row.
+ */
+let broadcastsBusy = false;
+let mealUpdatesBusy = false;
+
 export function configureNotifications() {
   if (configured) return;
   configured = true;
@@ -38,10 +46,11 @@ export function configureNotifications() {
   }
 }
 
-export async function ensurePermission(): Promise<boolean> {
+export async function ensurePermission(canPrompt = true): Promise<boolean> {
   try {
     const { status } = await Notifications.getPermissionsAsync();
     if (status === 'granted') return true;
+    if (!canPrompt) return false; // e.g. running from a headless background task
     const req = await Notifications.requestPermissionsAsync();
     return req.status === 'granted';
   } catch {
@@ -62,37 +71,44 @@ export async function registerPushToken(): Promise<string | null> {
 }
 
 /** Poll broadcasts and fire a local notification for any not seen before. */
-export async function checkForNewBroadcasts(): Promise<void> {
-  if (!getSession()?.user) return;
-  let seen: string[] = [];
+export async function checkForNewBroadcasts(canPrompt = true): Promise<void> {
+  if (!getSession()?.user || broadcastsBusy) return;
+  broadcastsBusy = true;
   try {
-    seen = JSON.parse((await AsyncStorage.getItem(SEEN_KEY)) || '[]');
-  } catch {
-    seen = [];
-  }
-  let bcs;
-  try {
-    bcs = await dbGetActiveBroadcasts();
-  } catch {
-    return;
-  }
-  const fresh = bcs.filter((b) => !seen.includes(b.id));
-  // On the very first run just record the baseline — don't spam every broadcast.
-  const firstRun = seen.length === 0;
-  const nextSeen = bcs.map((b) => b.id);
-  await AsyncStorage.setItem(SEEN_KEY, JSON.stringify(nextSeen));
-  if (firstRun) return;
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse((await AsyncStorage.getItem(SEEN_KEY)) || '[]');
+    } catch {
+      seen = [];
+    }
+    let bcs;
+    try {
+      bcs = await dbGetActiveBroadcasts();
+    } catch {
+      return;
+    }
+    const seenSet = new Set(seen);
+    const fresh = bcs.filter((b) => !seenSet.has(b.id));
+    // On the very first run just record the baseline — don't spam every broadcast.
+    const firstRun = seen.length === 0;
+    // Persist the new baseline before notifying so a later poll (or the
+    // background task, a separate JS context) sees these ids as already handled.
+    await AsyncStorage.setItem(SEEN_KEY, JSON.stringify(bcs.map((b) => b.id)));
+    if (firstRun || fresh.length === 0) return;
 
-  if (!(await ensurePermission())) return;
-  for (const b of fresh.slice(0, 5)) {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: b.priority === 'urgent' ? 'Urgent broadcast' : 'New broadcast',
-        body: b.message,
-        ...(Platform.OS === 'android' ? { channelId: 'broadcasts' } : {}),
-      },
-      trigger: null,
-    }).catch(() => {});
+    if (!(await ensurePermission(canPrompt))) return;
+    for (const b of fresh.slice(0, 5)) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: b.priority === 'urgent' ? 'Urgent broadcast' : 'New broadcast',
+          body: b.message,
+          ...(Platform.OS === 'android' ? { channelId: 'broadcasts' } : {}),
+        },
+        trigger: null,
+      }).catch(() => {});
+    }
+  } finally {
+    broadcastsBusy = false;
   }
 }
 
@@ -100,47 +116,53 @@ export async function checkForNewBroadcasts(): Promise<void> {
  * Poll meal-update notifications and raise a local notification for every member
  * whenever someone else changes a meal entry. Works in Expo Go.
  */
-export async function checkForMealUpdates(): Promise<void> {
+export async function checkForMealUpdates(canPrompt = true): Promise<void> {
   const me = getSession()?.user;
-  if (!me) return;
-
-  let seen: string[] = [];
+  if (!me || mealUpdatesBusy) return;
+  mealUpdatesBusy = true;
   try {
-    seen = JSON.parse((await AsyncStorage.getItem(MEAL_SEEN_KEY)) || '[]');
-  } catch {
-    seen = [];
-  }
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse((await AsyncStorage.getItem(MEAL_SEEN_KEY)) || '[]');
+    } catch {
+      seen = [];
+    }
 
-  let rows;
-  try {
-    rows = await dbGetRecentNotifications(25);
-  } catch {
-    return;
-  }
-  const mealRows = rows.filter((r) => r.type === 'meal_update' || r.type === 'meal_edit');
+    let rows;
+    try {
+      rows = await dbGetRecentNotifications(25);
+    } catch {
+      return;
+    }
+    const mealRows = rows.filter((r) => r.type === 'meal_update' || r.type === 'meal_edit');
 
-  const firstRun = seen.length === 0;
-  const nextSeen = mealRows.map((r) => r.id);
-  await AsyncStorage.setItem(MEAL_SEEN_KEY, JSON.stringify(nextSeen.slice(0, 60)));
-  if (firstRun) return;
+    const seenSet = new Set(seen);
+    const firstRun = seen.length === 0;
+    const fresh = mealRows.filter((r) => !seenSet.has(r.id) && r.from_id !== me.memberId);
+    // Record the baseline before the first yield so a second poll can't re-notify.
+    await AsyncStorage.setItem(
+      MEAL_SEEN_KEY,
+      JSON.stringify(mealRows.map((r) => r.id).slice(0, 60)),
+    );
+    if (firstRun || fresh.length === 0) return;
+    if (!(await ensurePermission(canPrompt))) return;
 
-  const fresh = mealRows.filter((r) => !seen.includes(r.id) && r.from_id !== me.memberId);
-  if (fresh.length === 0) return;
-  if (!(await ensurePermission())) return;
-
-  for (const r of fresh.slice(0, 4)) {
-    const d = r.data || {};
-    const detail =
-      d.day != null || d.night != null
-        ? `Day ${d.day ?? 0} · Night ${d.night ?? 0}`
-        : 'Meal sheet updated';
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `${r.from_name} updated a meal`,
-        body: `${r.date} — ${detail}`,
-        ...(Platform.OS === 'android' ? { channelId: 'broadcasts' } : {}),
-      },
-      trigger: null,
-    }).catch(() => {});
+    for (const r of fresh.slice(0, 4)) {
+      const d = r.data || {};
+      const detail =
+        d.day != null || d.night != null
+          ? `Day ${d.day ?? 0} · Night ${d.night ?? 0}`
+          : 'Meal sheet updated';
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `${r.from_name} updated a meal`,
+          body: `${r.date} — ${detail}`,
+          ...(Platform.OS === 'android' ? { channelId: 'broadcasts' } : {}),
+        },
+        trigger: null,
+      }).catch(() => {});
+    }
+  } finally {
+    mealUpdatesBusy = false;
   }
 }

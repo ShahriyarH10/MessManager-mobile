@@ -6,8 +6,12 @@ reference (stores, iOS, push, credentials) see [DEPLOY.md](DEPLOY.md).
 Current setup: EAS CLI (`npx eas-cli`), signed in as `shahriyar_h10`. Build
 profile **`preview`** → Android APK, internal distribution, update channel
 **`preview`**, `versionCode` auto-increments. `runtimeVersion` follows
-`expo.version` in `app.json` (currently **1.0.1**). `expo-updates` ships in the
+`expo.version` in `app.json` (currently **1.0.2**). `expo-updates` ships in the
 app from 1.0.1 onward, so over-the-air updates work for any 1.0.1+ build.
+
+> **1.0.2 adds native modules** (`expo-background-task`, `expo-task-manager` for
+> background notification polling) — it must be built and re-distributed
+> (Path B). JS-only fixes on top of a 1.0.2 build can then go OTA again.
 
 ---
 

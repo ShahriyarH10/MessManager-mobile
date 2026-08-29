@@ -3,7 +3,7 @@
     "name": "MessManager",
     "slug": "MessManager-mobile",
     "scheme": "messmanager",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -60,7 +60,8 @@
           "icon": "./assets/android-icon-monochrome.png",
           "color": "#d4a853"
         }
-      ]
+      ],
+      "expo-background-task"
     ],
     "extra": {
       "router": {},
