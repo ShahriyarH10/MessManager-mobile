@@ -43,9 +43,10 @@ yarn-error.*
 # env
 .env
 
-# FCM / push — pull from Firebase console per machine, never commit
-google-services.json
-GoogleService-Info.plist
+# FCM / push
+# google-services.json is committed: it's non-secret (its keys are restricted by
+# package name + shipped inside every APK). The service-account KEY below is the
+# real secret and must never be committed.
 *-firebase-adminsdk-*.json
 service-account*.json
 
