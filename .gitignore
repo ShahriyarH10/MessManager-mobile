@@ -43,9 +43,11 @@ yarn-error.*
 # env
 .env
 
-# FCM (push) — pull from Firebase console per machine
+# FCM / push — pull from Firebase console per machine, never commit
 google-services.json
 GoogleService-Info.plist
+*-firebase-adminsdk-*.json
+service-account*.json
 
 # bundle checks
 dist-check/
