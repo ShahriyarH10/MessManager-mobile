@@ -27,6 +27,7 @@ export function AppServices() {
   const [online, setOnline] = useState(true);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const running = useRef(false);
+  const pushActive = useRef(false);
   const appState = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
@@ -42,8 +43,21 @@ export function AppServices() {
       unregisterBackgroundPoll();
       return;
     }
-    registerPushToken().catch(() => {});
     registerBackgroundPoll();
+    // When a real push token registers, remote push becomes the primary channel
+    // and the 60-second foreground poll is just a race source — drop it, keeping
+    // only the cold-start / resume catch-up poll.
+    registerPushToken()
+      .then((token) => {
+        if (token) {
+          pushActive.current = true;
+          if (timer.current) {
+            clearInterval(timer.current);
+            timer.current = null;
+          }
+        }
+      })
+      .catch(() => {});
 
     // One poll at a time. On resume the OS can deliver a queued interval tick
     // right after the AppState "active" event — without this guard both would
@@ -63,8 +77,10 @@ export function AppServices() {
 
     const start = () => {
       if (timer.current) clearInterval(timer.current);
+      timer.current = null;
       run();
-      timer.current = setInterval(run, POLL_MS);
+      // Skip the recurring poll once push is the primary channel.
+      if (!pushActive.current) timer.current = setInterval(run, POLL_MS);
     };
 
     start();

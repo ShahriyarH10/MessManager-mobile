@@ -1,17 +1,29 @@
 /**
  * Notifications.
  *
- * Expo Go (SDK 53+) does NOT deliver remote push, but LOCAL notifications work.
- * So we poll for new broadcasts while the app is open (and on resume) and raise
- * a local notification for anything unseen. In a dev/production build the same
- * code also registers an Expo push token for true background delivery.
+ * Primary channel (real build + backend set up, see PUSH_SETUP.md): the device
+ * registers an Expo push token into `push_tokens`; the send-push edge function
+ * delivers instantly, app open or not.
+ *
+ * Fallback (Expo Go, or before the backend is wired, or push permission denied):
+ * poll `broadcasts` / `notifications` on launch, on resume, every 60s in the
+ * foreground, and ~every 15 min in the background (see backgroundPoll.ts), and
+ * raise a LOCAL notification for anything unseen.
+ *
+ * A shared `*_SEEN` list in AsyncStorage dedupes across all of these paths.
  */
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { getSession } from './session';
-import { dbGetActiveBroadcasts, dbGetRecentNotifications } from './db';
+import {
+  dbGetActiveBroadcasts,
+  dbGetRecentNotifications,
+  dbUpsertPushToken,
+  dbDeletePushToken,
+} from './db';
 
 const SEEN_KEY = 'mm_push_seen_broadcasts';
 const MEAL_SEEN_KEY = 'mm_push_seen_meal_updates';
@@ -44,6 +56,27 @@ export function configureNotifications() {
       vibrationPattern: [0, 200, 100, 200],
     }).catch(() => {});
   }
+  // A remote push already carries the row id; record it so the fallback poller
+  // doesn't raise a second, local notification for the same change.
+  Notifications.addNotificationReceivedListener((n) => {
+    const d = n.request?.content?.data as { rowId?: string; table?: string } | undefined;
+    if (d?.rowId && d?.table) markPushRowSeen(d.table, d.rowId).catch(() => {});
+  });
+}
+
+/** Append a row id to the relevant "already handled" list. */
+export async function markPushRowSeen(table: string, rowId: string): Promise<void> {
+  const key = table === 'broadcasts' ? SEEN_KEY : MEAL_SEEN_KEY;
+  let seen: string[] = [];
+  try {
+    seen = JSON.parse((await AsyncStorage.getItem(key)) || '[]');
+  } catch {
+    seen = [];
+  }
+  if (!seen.includes(rowId)) {
+    seen.push(rowId);
+    await AsyncStorage.setItem(key, JSON.stringify(seen.slice(-80)));
+  }
 }
 
 export async function ensurePermission(canPrompt = true): Promise<boolean> {
@@ -58,15 +91,44 @@ export async function ensurePermission(canPrompt = true): Promise<boolean> {
   }
 }
 
-/** Registers an Expo push token when running in a real build. No-op in Expo Go. */
+const LAST_TOKEN_KEY = 'mm_push_token';
+
+/**
+ * Gets this device's Expo push token in a real build and stores it against the
+ * signed-in member (server-side) so the send-push edge function can reach them.
+ * No-op in Expo Go / simulator.
+ */
 export async function registerPushToken(): Promise<string | null> {
-  if (!Device.isDevice) return null;
+  if (!Device.isDevice || !getSession()?.user) return null;
   try {
     if (!(await ensurePermission())) return null;
-    const { data } = await Notifications.getExpoPushTokenAsync();
-    return data ?? null;
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as any).easConfig?.projectId;
+    const { data: token } = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    if (!token) return null;
+    // Only hit the DB when the token actually changed.
+    const last = await AsyncStorage.getItem(LAST_TOKEN_KEY);
+    if (last !== token) {
+      await dbUpsertPushToken(token, Platform.OS).catch(() => {});
+      await AsyncStorage.setItem(LAST_TOKEN_KEY, token);
+    }
+    return token;
   } catch {
     return null; // Expo Go can't get a token on SDK 53+
+  }
+}
+
+/** Remove this device's token on sign-out so a signed-out phone stops buzzing. */
+export async function clearPushToken(): Promise<void> {
+  try {
+    const token = await AsyncStorage.getItem(LAST_TOKEN_KEY);
+    if (token) await dbDeletePushToken(token);
+    await AsyncStorage.removeItem(LAST_TOKEN_KEY);
+  } catch {
+    /* best effort */
   }
 }
 

@@ -83,6 +83,13 @@ export async function login(
 }
 
 export async function logout(): Promise<void> {
+  // Drop the push token while the session token is still valid for RLS.
+  try {
+    const { clearPushToken } = await import('./push');
+    await clearPushToken();
+  } catch {
+    /* non-fatal */
+  }
   await clearSession();
   resetClientCache();
   const { clearCache } = await import('./offline');

@@ -298,6 +298,33 @@ export async function getPendingCount(): Promise<number> {
   return count || 0;
 }
 
+/* ── Push tokens ────────────────────────────────────────── */
+
+/** Register / refresh this device's Expo push token for the signed-in member. */
+export async function dbUpsertPushToken(token: string, platform: string): Promise<void> {
+  const u = getSession()?.user;
+  const messId = getSession()?.mess?.id;
+  if (!u || !messId) return;
+  const { error } = await getClient()
+    .from('push_tokens')
+    .upsert(
+      {
+        mess_id: messId,
+        member_id: u.memberId,
+        token,
+        platform,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'token' },
+    );
+  if (error) throw error;
+}
+
+/** Drop this device's token (called on sign-out). */
+export async function dbDeletePushToken(token: string): Promise<void> {
+  await getClient().from('push_tokens').delete().eq('token', token);
+}
+
 /* ── Announcements ──────────────────────────────────────── */
 
 export type Announcement = {

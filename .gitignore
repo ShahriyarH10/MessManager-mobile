@@ -43,6 +43,10 @@ yarn-error.*
 # env
 .env
 
+# FCM (push) — pull from Firebase console per machine
+google-services.json
+GoogleService-Info.plist
+
 # bundle checks
 dist-check/
 dist-test/

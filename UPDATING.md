@@ -9,9 +9,10 @@ profile **`preview`** → Android APK, internal distribution, update channel
 `expo.version` in `app.json` (currently **1.0.2**). `expo-updates` ships in the
 app from 1.0.1 onward, so over-the-air updates work for any 1.0.1+ build.
 
-> **1.0.2 adds native modules** (`expo-background-task`, `expo-task-manager` for
-> background notification polling) — it must be built and re-distributed
-> (Path B). JS-only fixes on top of a 1.0.2 build can then go OTA again.
+> **1.0.2 is a native change** — adds `expo-background-task` / `expo-task-manager`
+> (background polling) and FCM push config (see [PUSH_SETUP.md](PUSH_SETUP.md)).
+> It must be built and re-distributed (Path B). JS-only fixes on top of a 1.0.2
+> build can then go OTA again.
 
 ---
 
