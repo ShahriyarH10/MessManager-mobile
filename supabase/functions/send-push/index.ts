@@ -45,8 +45,9 @@ function buildMessage(table: string, r: Row): { title: string; body: string } {
       body: r.message ?? "",
     };
   }
-  const d = r.data ?? {};
+  const d = (r.data ?? {}) as Record<string, unknown>;
   const who = r.from_name ?? "Someone";
+  const tk = (v: unknown) => `৳${v ?? 0}`;
   switch (r.type) {
     case "meal_update":
       return {
@@ -56,9 +57,16 @@ function buildMessage(table: string, r: Row): { title: string; body: string } {
     case "meal_edit":
       return { title: "Meal sheet updated", body: r.note || String(r.date ?? "") };
     case "bazar_update":
-      return { title: `${who} logged bazar`, body: `${r.date} — ৳${d.amount ?? 0}` };
+      return { title: `${who} logged bazar`, body: `${r.date} — ${tk(d.amount)}` };
+    case "rent_update":
+      return { title: `${who} paid rent`, body: `${tk(d.amount)} · ${d.monthName ?? ""} ${d.year ?? ""}`.trim() };
+    case "utility_update":
+      return {
+        title: `${who} paid a bill`,
+        body: `${d.billLabel ?? "Utility"} ${tk(d.amount)} · ${d.monthName ?? ""} ${d.year ?? ""}`.trim(),
+      };
     default:
-      return { title: `${who} — ${r.type ?? "update"}`, body: r.note || String(r.date ?? "") };
+      return { title: `${who} sent an update`, body: r.note || String(r.date ?? "") };
   }
 }
 
