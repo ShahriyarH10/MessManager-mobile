@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, RefreshControl, Alert } from 'react-native';
+import { View, Text, Pressable, RefreshControl, Alert, Share } from 'react-native';
+import Constants from 'expo-constants';
 import { getSession } from '../src/lib/session';
 import { useMessData } from '../src/hooks/useMessData';
 import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../src/components/ui';
@@ -336,11 +337,36 @@ function PushDiagCard() {
     </View>
   );
 
-  const ok = !!diag?.token && (dbCount ?? 0) > 0 && diag.permission === 'granted';
+  const appVersion = Constants.expoConfig?.version ?? '?';
+  const onNewBuild = appVersion === '1.1.0' || appVersion > '1.1.0';
+  const ok = onNewBuild && !!diag?.token && (dbCount ?? 0) > 0 && diag.permission === 'granted';
+
+  const shareReport = () => {
+    const lines = [
+      'MessManager push diagnostics',
+      `app version: ${appVersion} ${onNewBuild ? '' : '(OLD BUILD — needs 1.1.0 APK)'}`,
+      `real device: ${diag?.isDevice}`,
+      `permission: ${diag?.permission}`,
+      `projectId: ${diag?.projectId ?? 'MISSING'}`,
+      `token: ${diag?.token ?? 'none'}`,
+      `saved on server: ${dbCount ?? '?'} device(s)`,
+      `last check: ${diag?.lastRunAt ?? 'never'}`,
+      `last error: ${diag?.lastError ?? 'none'}`,
+    ];
+    Share.share({ message: lines.join('\n') });
+  };
 
   return (
     <Card>
       <CardTitle icon="notifications">Notification setup</CardTitle>
+      {!onNewBuild ? (
+        <View style={{ backgroundColor: colors.redBg, borderRadius: radiusSm, padding: 10, marginBottom: 10 }}>
+          <Text style={{ color: colors.red, fontSize: 12, fontWeight: '800' }}>
+            This phone is on the OLD build (v{appVersion}). Push cannot work here —
+            install the 1.1.0 APK.
+          </Text>
+        </View>
+      ) : null}
       <View
         style={{
           backgroundColor: ok ? colors.greenBg : colors.amberBg,
@@ -356,6 +382,7 @@ function PushDiagCard() {
 
       {diag ? (
         <>
+          {row('App version', appVersion, onNewBuild ? colors.green : colors.red)}
           {row('Real device build', diag.isDevice ? 'yes' : 'NO — emulator/Expo Go', diag.isDevice ? undefined : colors.red)}
           {row(
             'Permission',
@@ -410,6 +437,7 @@ function PushDiagCard() {
           onPress={() => fireLocalTestNotification()}
           style={{ flexGrow: 1 }}
         />
+        <Button label="Share report" variant="ghost" onPress={shareReport} style={{ flexGrow: 1 }} />
       </View>
     </Card>
   );
