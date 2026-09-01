@@ -62,9 +62,24 @@ function buildMessage(table: string, r: Row): { title: string; body: string } {
   }
 }
 
+function authorized(req: Request): boolean {
+  // A Supabase Database Webhook to an Edge Function sends the project's
+  // service-role key as the bearer token automatically — accept that, so no
+  // custom header needs to be configured. Also accept an explicit x-push-secret.
+  const auth = req.headers.get("authorization") ?? "";
+  if (SERVICE_KEY && auth === `Bearer ${SERVICE_KEY}`) return true;
+  if (HOOK_SECRET && req.headers.get("x-push-secret") === HOOK_SECRET) return true;
+  if (!HOOK_SECRET) return true; // no secret configured => open (dev)
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (HOOK_SECRET && req.headers.get("x-push-secret") !== HOOK_SECRET) {
+  if (!authorized(req)) {
+    console.warn("send-push: unauthorized call", {
+      hasAuth: !!req.headers.get("authorization"),
+      hasSecret: !!req.headers.get("x-push-secret"),
+    });
     return json({ error: "forbidden" }, 403);
   }
 
@@ -79,6 +94,7 @@ Deno.serve(async (req) => {
   // SQL trigger:        { table:"broadcasts", record:{...} }
   const table = payload.table ?? "";
   const record = payload.record;
+  console.log("send-push: received", { type: payload.type, table, recType: record?.type, mess_id: record?.mess_id });
   if (!record?.mess_id) return json({ skipped: "no mess_id" });
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
@@ -93,6 +109,7 @@ Deno.serve(async (req) => {
   const recipientIds = (members ?? [])
     .filter((m) => m.id !== authorId && (!authorName || m.name !== authorName))
     .map((m) => m.id);
+  console.log("send-push: recipients", { members: members?.length ?? 0, recipients: recipientIds.length });
   if (recipientIds.length === 0) return json({ sent: 0, reason: "no recipients" });
 
   const { data: tokenRows } = await sb
@@ -106,6 +123,7 @@ Deno.serve(async (req) => {
     if (t.startsWith("ExponentPushToken")) uniq.add(t);
   }
   const tokens = [...uniq];
+  console.log("send-push: tokens", tokens.length);
   if (tokens.length === 0) return json({ sent: 0, reason: "no tokens" });
 
   const { title, body } = buildMessage(table, record);
