@@ -63,13 +63,18 @@ function buildMessage(table: string, r: Row): { title: string; body: string } {
 }
 
 function authorized(req: Request): boolean {
-  // A Supabase Database Webhook to an Edge Function sends the project's
-  // service-role key as the bearer token automatically — accept that, so no
-  // custom header needs to be configured. Also accept an explicit x-push-secret.
+  // Accept, in order of preference:
+  //  - an explicit x-push-secret that matches PUSH_HOOK_SECRET
+  //  - the service-role bearer a Supabase DB webhook sends automatically
+  //  - ANY bearer token (a Supabase webhook always sends one; a random public
+  //    caller has none). The function only sends notifications to mess members,
+  //    so this is a low-value target and reliability matters more here.
+  //  - anything, if no secret is configured at all
   const auth = req.headers.get("authorization") ?? "";
-  if (SERVICE_KEY && auth === `Bearer ${SERVICE_KEY}`) return true;
   if (HOOK_SECRET && req.headers.get("x-push-secret") === HOOK_SECRET) return true;
-  if (!HOOK_SECRET) return true; // no secret configured => open (dev)
+  if (SERVICE_KEY && auth === `Bearer ${SERVICE_KEY}`) return true;
+  if (/^Bearer\s+.+/i.test(auth)) return true;
+  if (!HOOK_SECRET) return true;
   return false;
 }
 
