@@ -7,9 +7,9 @@
 --  rent / utility / meals until a manager or sub-manager confirms it in the
 --  app, which then applies the payment and stamps this row 'confirmed'.
 --
---  Row-level security uses the same JWT claims as supabase/rls-policies.sql
---  (mess_id, member_id, role). Requires get_mess_id_from_jwt() /
---  get_role_from_jwt() from that file.
+--  Access control matches the rest of the project (open "allow_anon_all"
+--  policy, enforced in the app). Strict JWT-scoped policies are included,
+--  commented out, for when rls-policies.sql is deployed.
 -- ============================================================
 
 create extension if not exists "uuid-ossp";
@@ -39,34 +39,35 @@ create index if not exists idx_member_payments_member on member_payments(member_
 
 alter table member_payments enable row level security;
 
-drop policy if exists "mm_member_payments_select" on member_payments;
-drop policy if exists "mm_member_payments_insert" on member_payments;
-drop policy if exists "mm_member_payments_update" on member_payments;
+drop policy if exists "allow_anon_all"            on member_payments;
+drop policy if exists "mm_member_payments_select"  on member_payments;
+drop policy if exists "mm_member_payments_insert"  on member_payments;
+drop policy if exists "mm_member_payments_update"  on member_payments;
 
--- Managers see every payment in their mess; a member sees only their own.
-create policy "mm_member_payments_select" on member_payments
-  for select using (
-    mess_id = get_mess_id_from_jwt()
-    and (
-      get_role_from_jwt() in ('manager', 'sub_manager', 'superadmin')
-      or member_id::text = current_setting('request.jwt.claims', true)::json->>'member_id'
-    )
-  );
+-- Same access model as every other table in this project today (see
+-- database.sql): the app enforces who may do what (members file requests,
+-- managers confirm / reject) and scopes every query by mess_id.
+create policy "allow_anon_all" on member_payments for all using (true) with check (true);
 
--- A member may file a *pending* request for themselves only.
-create policy "mm_member_payments_insert" on member_payments
-  for insert with check (
-    mess_id = get_mess_id_from_jwt()
-    and status = 'pending'
-    and member_id::text = current_setting('request.jwt.claims', true)::json->>'member_id'
-  );
-
--- Only managers / sub-managers can confirm or reject.
-create policy "mm_member_payments_update" on member_payments
-  for update using (
-    mess_id = get_mess_id_from_jwt()
-    and get_role_from_jwt() in ('manager', 'sub_manager', 'superadmin')
-  );
+-- ------------------------------------------------------------
+--  LATER, if you roll out supabase/rls-policies.sql (JWT-scoped RLS):
+--  drop "allow_anon_all" above and add policies like these instead.
+--  They need get_mess_id_from_jwt() / get_role_from_jwt() from that file.
+--
+--  create policy "mm_member_payments_select" on member_payments
+--    for select using (
+--      mess_id = get_mess_id_from_jwt()
+--      and (get_role_from_jwt() in ('manager','sub_manager','superadmin')
+--           or member_id::text = current_setting('request.jwt.claims', true)::json->>'member_id'));
+--  create policy "mm_member_payments_insert" on member_payments
+--    for insert with check (
+--      mess_id = get_mess_id_from_jwt() and status = 'pending'
+--      and member_id::text = current_setting('request.jwt.claims', true)::json->>'member_id');
+--  create policy "mm_member_payments_update" on member_payments
+--    for update using (
+--      mess_id = get_mess_id_from_jwt()
+--      and get_role_from_jwt() in ('manager','sub_manager','superadmin'));
+-- ------------------------------------------------------------
 
 -- ---- verify ----
 -- select count(*) from member_payments;

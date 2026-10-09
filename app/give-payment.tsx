@@ -10,6 +10,7 @@ import { computeSplit, buildPaymentReceiptText, receiptNumber } from '../src/cor
 import { thisMonth, fmtTk, monthKey, monthLabelFromKey, round2 } from '../src/core/format';
 import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../src/components/ui';
 import { Button, Field, NumberField, MonthYearField, Badge } from '../src/components/form';
+import { SuccessCheck, AnimatedNumber, Reveal } from '../src/components/motion';
 import { useTheme } from '../src/theme';
 import type { Member, MemberPayment } from '../src/core/types';
 
@@ -31,6 +32,7 @@ export default function GivePayment() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [sent, setSent] = useState<MemberPayment | null>(null);
 
   const key = monthKey(year, month);
 
@@ -66,6 +68,7 @@ export default function GivePayment() {
 
   useEffect(() => {
     setLoading(true);
+    setSent(null);
     load();
   }, [load]);
 
@@ -100,8 +103,8 @@ export default function GivePayment() {
     try {
       const p = await submitMyPayment(me, month, year, row.total, value);
       setOpenId(p.id);
+      setSent(p);
       await load();
-      Alert.alert('Request sent', 'The manager has been notified. Your receipt becomes official once they confirm it.');
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not save.');
     } finally {
@@ -122,6 +125,20 @@ export default function GivePayment() {
         <MonthYearField month={month} year={year} onChange={(m, y) => { setMonth(m); setYear(y); }} />
       </Field>
 
+      {sent ? (
+        <Card style={{ alignItems: 'center', paddingVertical: 22 }}>
+          <SuccessCheck />
+          <Reveal index={1} style={{ alignItems: 'center', marginTop: 4 }}>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>
+              {fmtTk(Number(sent.amount))} sent to the manager
+            </Text>
+            <Text style={{ color: colors.text3, fontSize: 12, textAlign: 'center', marginTop: 5 }}>
+              Receipt {receiptNumber(sent.receipt_no)} is pending. It becomes official once the manager confirms it.
+            </Text>
+          </Reveal>
+        </Card>
+      ) : null}
+
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{row.name}</Text>
@@ -129,9 +146,11 @@ export default function GivePayment() {
             <Text style={{ color: colors.text3, fontSize: 10, textTransform: 'uppercase' }}>
               {owed ? 'Mess owes you' : 'Total due'}
             </Text>
-            <Text style={{ color: settled ? colors.green : colors.red, fontSize: 18, fontWeight: '800' }}>
-              {fmtTk(Math.abs(row.total))}
-            </Text>
+            <AnimatedNumber
+              value={Math.abs(row.total)}
+              format={(n) => fmtTk(n)}
+              style={{ color: settled ? colors.green : colors.red, fontSize: 18, fontWeight: '800' }}
+            />
           </View>
         </View>
 

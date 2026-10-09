@@ -24,13 +24,15 @@ function RootStack() {
       <Stack
         screenOptions={{
           headerShown: false,
+          animation: 'slide_from_right',
+          animationDuration: 260,
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
         <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="(member)" />
-        <Stack.Screen name="(manager)" />
+        <Stack.Screen name="login" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(member)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(manager)" options={{ animation: 'fade' }} />
         <Stack.Screen name="profile" options={{ ...stackScreen, title: 'My Profile' }} />
         <Stack.Screen name="monthly-log" options={{ ...stackScreen, title: 'Monthly Log' }} />
         <Stack.Screen name="messages" options={{ ...stackScreen, title: 'Broadcasts' }} />

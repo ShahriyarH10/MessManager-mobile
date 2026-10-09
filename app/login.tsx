@@ -6,7 +6,6 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Linking,
 } from 'react-native';
 import { Redirect } from 'expo-router';
@@ -16,6 +15,7 @@ import { LoginError } from '../src/lib/auth';
 import { WEBSITE_URL } from '../src/lib/config';
 import { useTheme, radiusSm } from '../src/theme';
 import { Loading } from '../src/components/ui';
+import { Reveal, PressableScale, DotsLoader } from '../src/components/motion';
 
 export default function Login() {
   const { ready, user, area, signIn } = useAuth();
@@ -28,7 +28,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  if (!ready) return <Loading />;
+  if (!ready) return <Loading brand />;
   if (user) return <Redirect href={area === 'manager' ? '/(manager)' : '/(member)'} />;
 
   const submit = async () => {
@@ -58,12 +58,12 @@ export default function Login() {
           gap: 18,
         }}
       >
-        <View style={{ gap: 6, marginBottom: 8 }}>
+        <Reveal index={0} style={{ gap: 6, marginBottom: 8 }}>
           <Text style={{ color: colors.accent, fontSize: 32, fontWeight: '900' }}>MessManager</Text>
           <Text style={{ color: colors.text3, fontSize: 14 }}>Sign in to your mess account</Text>
-        </View>
+        </Reveal>
 
-        <View style={{ gap: 6 }}>
+        <Reveal index={1} style={{ gap: 6 }}>
           <Text style={{ color: colors.text2, fontSize: 12, fontWeight: '600' }}>Username</Text>
           <TextInput
             value={username}
@@ -83,9 +83,9 @@ export default function Login() {
               fontSize: 16,
             }}
           />
-        </View>
+        </Reveal>
 
-        <View style={{ gap: 6 }}>
+        <Reveal index={2} style={{ gap: 6 }}>
           <Text style={{ color: colors.text2, fontSize: 12, fontWeight: '600' }}>Password</Text>
           <View style={{ position: 'relative', justifyContent: 'center' }}>
             <TextInput
@@ -117,37 +117,43 @@ export default function Login() {
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Reveal>
 
         {err ? (
-          <View
-            style={{
-              backgroundColor: colors.redBg,
-              borderRadius: radiusSm,
-              padding: 10,
-            }}
-          >
-            <Text style={{ color: colors.red, fontSize: 13 }}>{err}</Text>
-          </View>
+          <Reveal key={err}>
+            <View
+              style={{
+                backgroundColor: colors.redBg,
+                borderRadius: radiusSm,
+                padding: 10,
+              }}
+            >
+              <Text style={{ color: colors.red, fontSize: 13 }}>{err}</Text>
+            </View>
+          </Reveal>
         ) : null}
 
-        <Pressable
-          onPress={submit}
-          disabled={busy}
-          style={{
-            backgroundColor: colors.accent,
-            borderRadius: radiusSm,
-            paddingVertical: 14,
-            alignItems: 'center',
-            opacity: busy ? 0.7 : 1,
-          }}
-        >
-          {busy ? (
-            <ActivityIndicator color="#1a1816" />
-          ) : (
-            <Text style={{ color: '#1a1816', fontSize: 16, fontWeight: '800' }}>Sign in</Text>
-          )}
-        </Pressable>
+        <Reveal index={3}>
+          <PressableScale
+            onPress={submit}
+            disabled={busy}
+            style={{
+              backgroundColor: colors.accent,
+              borderRadius: radiusSm,
+              paddingVertical: 14,
+              minHeight: 50,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: busy ? 0.9 : 1,
+            }}
+          >
+            {busy ? (
+              <DotsLoader color="#1a1816" />
+            ) : (
+              <Text style={{ color: '#1a1816', fontSize: 16, fontWeight: '800' }}>Sign in</Text>
+            )}
+          </PressableScale>
+        </Reveal>
 
         <Text style={{ color: colors.text3, fontSize: 11, textAlign: 'center' }}>
           Manager and member accounts are created in the web app.

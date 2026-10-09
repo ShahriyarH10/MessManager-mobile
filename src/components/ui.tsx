@@ -6,12 +6,12 @@ import {
   ViewStyle,
   TextStyle,
   ScrollView,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, radius, radiusSm } from '../theme';
 import { Icon, type IconName } from './Icon';
+import { Reveal, ScreenSkeleton, BrandLoader } from './motion';
 
 const shadow = (elevation: number): ViewStyle =>
   Platform.select<ViewStyle>({
@@ -178,15 +178,19 @@ export function ScreenScroll({
       keyboardShouldPersistTaps="handled"
       refreshControl={refreshControl}
     >
-      <View style={{ marginBottom: 2 }}>
+      <Reveal index={0} style={{ marginBottom: 2 }}>
         <Text style={{ color: colors.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.4 }}>
           {title}
         </Text>
         {subtitle ? (
           <Text style={{ color: colors.text3, fontSize: 13, marginTop: 3 }}>{subtitle}</Text>
         ) : null}
-      </View>
-      {children}
+      </Reveal>
+      {React.Children.toArray(children).map((child, i) => (
+        <Reveal key={(child as any)?.key ?? i} index={i + 1}>
+          {child}
+        </Reveal>
+      ))}
     </ScrollView>
   );
 }
@@ -209,14 +213,12 @@ export function Centered({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Loading({ label }: { label?: string }) {
-  const { colors } = useTheme();
-  return (
-    <Centered>
-      <ActivityIndicator color={colors.accent} />
-      {label ? <Text style={{ color: colors.text3 }}>{label}</Text> : null}
-    </Centered>
-  );
+/**
+ * First-load placeholder. Data screens get a page-shaped shimmer skeleton;
+ * pass `brand` for app start-up / auth gates, which get the branded spinner.
+ */
+export function Loading({ label, brand }: { label?: string; brand?: boolean }) {
+  return brand ? <BrandLoader label={label} /> : <ScreenSkeleton label={label} />;
 }
 
 export function EmptyState({ icon, text }: { icon?: IconName; text: string }) {

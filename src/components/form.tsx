@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   Pressable,
-  ActivityIndicator,
   Modal,
   Platform,
   ScrollView,
@@ -15,6 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme, radiusSm } from '../theme';
 import { MONTHS, todayStr } from '../core/format';
 import { Icon, type IconName } from './Icon';
+import { PressableScale, DotsLoader } from './motion';
 
 function tap() {
   Haptics.selectionAsync().catch(() => {});
@@ -42,14 +42,14 @@ export function Button({
     variant === 'primary' ? '#1a1816' : variant === 'danger' ? colors.red : colors.text;
   const border = variant === 'ghost' ? colors.border2 : 'transparent';
   return (
-    <Pressable
+    <PressableScale
       onPress={() => {
         tap();
         onPress();
       }}
       disabled={busy || disabled}
       android_ripple={{ color: colors.border2 }}
-      style={({ pressed }) => [
+      style={[
         {
           backgroundColor: bg,
           borderColor: border,
@@ -57,19 +57,20 @@ export function Button({
           borderRadius: radiusSm,
           paddingVertical: 13,
           paddingHorizontal: 16,
+          minHeight: 48,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: busy || disabled ? 0.55 : pressed && Platform.OS === 'ios' ? 0.7 : 1,
+          opacity: busy ? 0.9 : disabled ? 0.55 : 1,
         },
         style,
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={fg} size="small" />
+        <DotsLoader color={fg} />
       ) : (
         <Text style={{ color: fg, fontWeight: '800', fontSize: 15 }}>{label}</Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

@@ -5,7 +5,7 @@ import { Loading } from '../src/components/ui';
 
 export default function Index() {
   const { ready, user, area } = useAuth();
-  if (!ready) return <Loading label="Loading…" />;
+  if (!ready) return <Loading brand />;
   if (!user) return <Redirect href="/login" />;
   return <Redirect href={area === 'manager' ? '/(manager)' : '/(member)'} />;
 }

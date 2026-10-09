@@ -17,13 +17,14 @@ export default function MemberLayout() {
   const { ready, user } = useAuth();
   const { colors } = useTheme();
 
-  if (!ready) return <Loading />;
+  if (!ready) return <Loading brand />;
   if (!user) return <Redirect href="/login" />;
 
   return (
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
+        animation: 'fade',
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.text3,
         tabBarStyle: { backgroundColor: colors.bg1, borderTopColor: colors.border },
