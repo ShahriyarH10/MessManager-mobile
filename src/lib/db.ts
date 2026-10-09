@@ -17,6 +17,7 @@ import type {
   RentEntry,
   UtilityRecord,
   UtilityPayment,
+  MemberPayment,
 } from '../core/types';
 
 function orderColumn(table: string): string {
@@ -222,6 +223,97 @@ export async function dbSetMemberRole(id: string, role: string): Promise<void> {
 export async function dbSetMemberPassword(id: string, passwordHash: string): Promise<void> {
   const { error } = await getClient().from('members').update({ password: passwordHash }).eq('id', id);
   if (error) throw error;
+}
+
+/* ── Member payments (Give Payment requests) ───────────── */
+
+export async function dbCreateMemberPayment(row: {
+  memberId: string;
+  memberName: string;
+  monthKey: string;
+  month: number;
+  year: number;
+  amount: number;
+  dueAtSubmit: number;
+}): Promise<MemberPayment> {
+  const { data, error } = await getClient()
+    .from('member_payments')
+    .insert({
+      mess_id: getMessId(),
+      member_id: row.memberId,
+      member_name: row.memberName,
+      month_key: row.monthKey,
+      month: row.month,
+      year: row.year,
+      amount: row.amount,
+      due_at_submit: row.dueAtSubmit,
+      status: 'pending',
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as MemberPayment;
+}
+
+/** Newest first. A member passes their own id; a manager passes nothing (whole mess). */
+export async function dbGetMemberPayments(opts: {
+  memberId?: string;
+  status?: string;
+  limit?: number;
+} = {}): Promise<MemberPayment[]> {
+  let q = getClient()
+    .from('member_payments')
+    .select('*')
+    .eq('mess_id', getMessId())
+    .order('created_at', { ascending: false })
+    .limit(opts.limit ?? 50);
+  if (opts.memberId) q = q.eq('member_id', opts.memberId);
+  if (opts.status) q = q.eq('status', opts.status);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as MemberPayment[]) || [];
+}
+
+/**
+ * Atomically move a pending payment to a new status. Returns null when it was
+ * already handled (someone else confirmed/rejected it first), so a payment can
+ * never be applied twice.
+ */
+export async function dbClaimMemberPayment(
+  id: string,
+  status: 'confirmed' | 'rejected',
+  by: string,
+): Promise<MemberPayment | null> {
+  const { data, error } = await getClient()
+    .from('member_payments')
+    .update({ status, confirmed_by: by, confirmed_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('mess_id', getMessId())
+    .eq('status', 'pending')
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  return (data as MemberPayment) ?? null;
+}
+
+export async function dbFinalizeMemberPayment(
+  id: string,
+  split: NonNullable<MemberPayment['split']>,
+  stillDue: number,
+): Promise<void> {
+  const { error } = await getClient()
+    .from('member_payments')
+    .update({ split, still_due: stillDue })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/** Undo a claim when applying the payment failed, so it can be retried. */
+export async function dbReleaseMemberPayment(id: string): Promise<void> {
+  await getClient()
+    .from('member_payments')
+    .update({ status: 'pending', confirmed_by: null, confirmed_at: null })
+    .eq('id', id);
 }
 
 /* ── Notifications ──────────────────────────────────────── */

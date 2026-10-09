@@ -7,11 +7,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../src/context/AuthContext';
 import { LoginError } from '../src/lib/auth';
+import { WEBSITE_URL } from '../src/lib/config';
 import { useTheme, radiusSm } from '../src/theme';
 import { Loading } from '../src/components/ui';
 
@@ -150,6 +152,20 @@ export default function Login() {
         <Text style={{ color: colors.text3, fontSize: 11, textAlign: 'center' }}>
           Manager and member accounts are created in the web app.
         </Text>
+
+        <Pressable
+          onPress={() => Linking.openURL(WEBSITE_URL).catch(() => {})}
+          hitSlop={8}
+          accessibilityRole="link"
+          style={{ alignSelf: 'center', paddingVertical: 4 }}
+        >
+          <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '700' }}>
+            Visit our website ↗
+          </Text>
+          <Text style={{ color: colors.text3, fontSize: 11, textAlign: 'center', marginTop: 2 }}>
+            {WEBSITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+          </Text>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );

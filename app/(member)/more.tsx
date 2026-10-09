@@ -10,6 +10,7 @@ import { initials } from '../../src/core/format';
 
 const LINKS: { icon: IconName; label: string; href: string }[] = [
   { icon: 'profile', label: 'My Profile', href: '/profile' },
+  { icon: 'rent', label: 'Give Payment', href: '/give-payment' },
   { icon: 'monthlyLog', label: 'Monthly Log', href: '/monthly-log' },
   { icon: 'broadcast', label: 'Broadcasts', href: '/messages' },
   { icon: 'messInfo', label: 'Mess Info', href: '/mess-info' },

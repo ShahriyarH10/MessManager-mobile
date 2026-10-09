@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, RefreshControl, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getSession } from '../../src/lib/session';
 import { dbGetMembers, dbGetRent, dbGetUtility } from '../../src/lib/db';
 import { saveMyPayment, type PaymentType } from '../../src/lib/memberActions';
@@ -24,6 +25,7 @@ function tone(status?: string) {
 
 export default function Payments() {
   const { colors } = useTheme();
+  const router = useRouter();
   const t = thisMonth();
   const [member, setMember] = useState<Member | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -123,6 +125,14 @@ export default function Payments() {
       subtitle="Record a payment you've made"
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
+      <Card>
+        <CardTitle>Month-end settlement</CardTitle>
+        <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 12 }}>
+          Tell the manager what you're paying for the month. Once they confirm it, it's split across rent, utility and meals and your receipt becomes official.
+        </Text>
+        <Button label="Give payment" onPress={() => router.push('/give-payment' as any)} />
+      </Card>
+
       <Card>
         <CardTitle>Record a payment</CardTitle>
         <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 12 }}>

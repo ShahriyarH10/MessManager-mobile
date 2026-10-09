@@ -16,10 +16,12 @@ import {
   dbUpsertUtility,
   dbSaveNotification,
   dbSetAttendance,
+  isMonthLocked,
+  dbCreateMemberPayment,
 } from './db';
-import { round2, monthKey, todayStr, MONTHS, previousMonth } from '../core/format';
+import { round2, monthKey, todayStr, MONTHS, previousMonth, monthLabelFromKey } from '../core/format';
 import { UTIL_PREPAID_KEYS, UTIL_POSTPAID_KEYS, utilTotalFromBills } from '../core/settlement';
-import type { Member, RentEntry } from '../core/types';
+import type { Member, RentEntry, MemberPayment } from '../core/types';
 
 async function notifyManager(type: string, date: string, data: any, note = ''): Promise<void> {
   await dbSaveNotification({ type, date, data, note, status: 'new' });
@@ -145,6 +147,47 @@ export async function saveMyPayment(
     { member: member.name, billType, billLabel: PAYMENT_LABEL[billType], monthKey: key, monthName: MONTHS[month], year, amount },
     note,
   );
+}
+
+/* ── Give payment (month-end settlement request) ───────── */
+
+/**
+ * The member says "I am giving ৳X for this month". This only files a PENDING
+ * request and notifies the managers — nothing is credited to rent / utility /
+ * meals until a manager confirms it (see confirmMemberPayment).
+ */
+export async function submitMyPayment(
+  member: Member,
+  month: number,
+  year: number,
+  dueNow: number,
+  amount: number,
+): Promise<MemberPayment> {
+  if (!(amount > 0)) throw new Error('Enter a valid amount');
+  const key = monthKey(year, month);
+  if (await isMonthLocked(key)) {
+    throw new Error(`${monthLabelFromKey(key)} is closed by the manager — contact them to pay.`);
+  }
+  const payment = await dbCreateMemberPayment({
+    memberId: member.id,
+    memberName: member.name,
+    monthKey: key,
+    month,
+    year,
+    amount,
+    dueAtSubmit: dueNow,
+  });
+  try {
+    await notifyManager(
+      'payment_request',
+      todayStr(),
+      { member: member.name, paymentId: payment.id, monthKey: key, monthName: MONTHS[month], year, amount },
+      `Wants to give ৳${amount} for ${MONTHS[month]} ${year} — please confirm`,
+    );
+  } catch {
+    /* the request itself is saved; the manager still sees it in Collect */
+  }
+  return payment;
 }
 
 /* ── Absence range ─────────────────────────────────────── */

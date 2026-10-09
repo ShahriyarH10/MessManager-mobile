@@ -13,11 +13,17 @@ import {
   dbUpsertUtility,
   dbUpsertRent,
   logAudit,
+  isMonthLocked,
+  dbClaimMemberPayment,
+  dbFinalizeMemberPayment,
+  dbReleaseMemberPayment,
+  dbSaveNotification,
 } from './db';
 import { round2, monthKey, previousMonthFromKey, nextMonth } from '../core/format';
 import { calcMemberSettlement, calcPrevDueForMember } from '../core/settlement';
 import { computeSplit, type Split } from '../core/collect';
-import type { Member } from '../core/types';
+import { todayStr, MONTHS, monthLabelFromKey } from '../core/format';
+import type { Member, MemberPayment } from '../core/types';
 
 export type CollectRow = {
   id: string;
@@ -242,4 +248,70 @@ export async function saveCreditRow(
 
   await logAudit('update', 'collect', key, `Mess-owes to ${memberName}: cash ${cashNow}, carry ${carry}`);
   return { cashNow, carry };
+}
+
+/**
+ * Manager confirms a member's "Give Payment" request: applies it with the same
+ * waterfall as Collect Payment, then stamps the request confirmed with the
+ * split + balance so the receipt can be reprinted later.
+ */
+export async function confirmMemberPayment(
+  payment: MemberPayment,
+  members: Member[],
+  confirmerName: string,
+): Promise<MemberPayment> {
+  if (await isMonthLocked(payment.month_key)) {
+    throw new Error(`${monthLabelFromKey(payment.month_key)} is locked — unlock it first.`);
+  }
+  // Claim first so two managers can't both apply the same payment.
+  const claimed = await dbClaimMemberPayment(payment.id, 'confirmed', confirmerName);
+  if (!claimed) throw new Error('This payment was already confirmed or rejected.');
+  try {
+    const data = await loadCollectData(payment.month, payment.year);
+    const row = data.rows.find((r) => r.id === payment.member_id);
+    if (!row) throw new Error('Member not found.');
+    const amount = Number(payment.amount);
+    const res = await saveCollectRow(members, payment.month, payment.year, payment.month_key, row, amount);
+    const stillDue = round2(row.total - round2(amount - res.change));
+    const split = {
+      allocPrevDue: res.allocPrevDue,
+      allocRent: res.allocRent,
+      allocUtil: res.allocUtil,
+      allocMeal: res.allocMeal,
+      change: res.change,
+    };
+    await dbFinalizeMemberPayment(payment.id, split, stillDue);
+    try {
+      await dbSaveNotification({
+        type: 'payment_confirmed',
+        date: todayStr(),
+        data: { to_member_id: payment.member_id, paymentId: payment.id, amount, monthName: MONTHS[payment.month], year: payment.year },
+        note: '',
+        status: 'new',
+      });
+    } catch {
+      /* member still sees the status in their list */
+    }
+    return { ...claimed, split, still_due: stillDue };
+  } catch (e) {
+    await dbReleaseMemberPayment(payment.id);
+    throw e;
+  }
+}
+
+export async function rejectMemberPayment(payment: MemberPayment, rejecterName: string): Promise<void> {
+  const claimed = await dbClaimMemberPayment(payment.id, 'rejected', rejecterName);
+  if (!claimed) throw new Error('This payment was already confirmed or rejected.');
+  await logAudit('update', 'collect', payment.month_key, `Rejected payment ${payment.amount} from ${payment.member_name}`);
+  try {
+    await dbSaveNotification({
+      type: 'payment_rejected',
+      date: todayStr(),
+      data: { to_member_id: payment.member_id, paymentId: payment.id, amount: payment.amount, monthName: MONTHS[payment.month], year: payment.year },
+      note: '',
+      status: 'new',
+    });
+  } catch {
+    /* non-fatal */
+  }
 }

@@ -65,3 +65,30 @@ export type UtilityRecord = {
   bills: Record<string, unknown>;
   payments: Record<string, UtilityPayment>;
 };
+
+export type MemberPaymentStatus = 'pending' | 'confirmed' | 'rejected';
+
+/** A member's "Give Payment" request, confirmed or rejected by a manager. */
+export type MemberPayment = {
+  id: string;
+  receipt_no: number;
+  member_id: string;
+  member_name: string;
+  month_key: string;
+  month: number;
+  year: number;
+  amount: number;
+  due_at_submit: number | null;
+  status: MemberPaymentStatus;
+  split: {
+    allocPrevDue: number;
+    allocRent: number;
+    allocUtil: number;
+    allocMeal: number;
+    change: number;
+  } | null;
+  still_due: number | null;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+};

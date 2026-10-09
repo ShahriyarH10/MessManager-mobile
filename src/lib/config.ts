@@ -20,3 +20,6 @@ export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Hour of day after which meal entry screens show "tomorrow". */
 export const LATE_NIGHT_HOUR = 23;
+
+/** Public MessManager web app, linked from the login screen. */
+export const WEBSITE_URL = 'https://mess-managements-delta.vercel.app/';

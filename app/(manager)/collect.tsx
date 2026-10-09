@@ -3,12 +3,16 @@ import { View, Text, Pressable, TextInput, Alert, RefreshControl, Share } from '
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../src/context/AuthContext';
-import { dbGetMembers } from '../../src/lib/db';
+import { dbGetMembers, dbGetMemberPayments } from '../../src/lib/db';
+import { getSession } from '../../src/lib/session';
+import { toReceipt, showReceiptAlert } from '../../src/lib/receipt';
 import {
   loadCollectData,
   saveCollectRow,
   saveChangeRow,
   saveCreditRow,
+  confirmMemberPayment,
+  rejectMemberPayment,
   type CollectRow,
   type CollectData,
 } from '../../src/lib/collect';
@@ -18,7 +22,7 @@ import { ScreenScroll, Card, CardTitle, Loading, Centered, EmptyState, CarryTag 
 import { MonthYearField, Field, Button } from '../../src/components/form';
 import { Icon } from '../../src/components/Icon';
 import { useTheme, radiusSm } from '../../src/theme';
-import type { Member } from '../../src/core/types';
+import type { Member, MemberPayment } from '../../src/core/types';
 
 export default function Collect() {
   const { colors } = useTheme();
@@ -33,14 +37,20 @@ export default function Collect() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [pendingPays, setPendingPays] = useState<MemberPayment[]>([]);
 
   const key = monthKey(year, month);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [ms, res] = await Promise.all([dbGetMembers(), loadCollectData(month, year)]);
+      const [ms, res, pays] = await Promise.all([
+        dbGetMembers(),
+        loadCollectData(month, year),
+        dbGetMemberPayments({ status: 'pending' }).catch(() => [] as MemberPayment[]),
+      ]);
       setMembers(ms);
+      setPendingPays(pays);
       setCd(res);
       const pre: Record<string, string> = {};
       res.rows.forEach((r) => {
@@ -184,6 +194,41 @@ export default function Collect() {
     }
   };
 
+  const confirmPay = async (p: MemberPayment) => {
+    setSavingId(p.id);
+    try {
+      const done = await confirmMemberPayment(p, members, getSession()?.user.name ?? 'Manager');
+      await load();
+      showReceiptAlert('Payment confirmed', toReceipt(done, mess?.name ?? 'Mess'));
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not confirm.');
+      await load();
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const rejectPay = (p: MemberPayment) =>
+    Alert.alert('Reject payment?', `${p.member_name}'s ${fmtTk(Number(p.amount))} will not be counted.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reject',
+        style: 'destructive',
+        onPress: async () => {
+          setSavingId(p.id);
+          try {
+            await rejectMemberPayment(p, getSession()?.user.name ?? 'Manager');
+            await load();
+          } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Could not reject.');
+            await load();
+          } finally {
+            setSavingId(null);
+          }
+        },
+      },
+    ]);
+
   const nextLabel = cd ? `${MONTHS[cd.nextMonth]} ${cd.nextYear}` : '';
 
   return (
@@ -199,7 +244,33 @@ export default function Collect() {
         Split order: previous due → rent → utility → meal. Extra becomes change.
       </Text>
 
-      {owing.length === 0 && returnRows.length === 0 ? (
+      {pendingPays.length > 0 ? (
+        <>
+          <CardTitle icon="notifications">Member payments to confirm</CardTitle>
+          {pendingPays.map((p) => (
+            <Card key={p.id}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '800' }}>{p.member_name}</Text>
+                  <Text style={{ color: colors.text3, fontSize: 11, marginTop: 2 }}>
+                    {monthLabelFromKey(p.month_key)} · {new Date(p.created_at).toLocaleString()}
+                  </Text>
+                  {p.due_at_submit != null ? (
+                    <Text style={{ color: colors.text3, fontSize: 11 }}>Owed when sent: {fmtTk(Number(p.due_at_submit))}</Text>
+                  ) : null}
+                </View>
+                <Text style={{ color: colors.green, fontSize: 18, fontWeight: '800' }}>{fmtTk(Number(p.amount))}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <Button label="Reject" variant="danger" onPress={() => rejectPay(p)} disabled={savingId === p.id} style={{ flex: 1 }} />
+                <Button label="Confirm received" onPress={() => confirmPay(p)} busy={savingId === p.id} style={{ flex: 2 }} />
+              </View>
+            </Card>
+          ))}
+        </>
+      ) : null}
+
+      {owing.length === 0 && returnRows.length === 0 && pendingPays.length === 0 ? (
         <Card>
           <EmptyState icon="present" text={`All settled for ${MONTHS[month]} ${year}`} />
         </Card>

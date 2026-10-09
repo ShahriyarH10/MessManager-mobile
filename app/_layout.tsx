@@ -35,6 +35,7 @@ function RootStack() {
         <Stack.Screen name="monthly-log" options={{ ...stackScreen, title: 'Monthly Log' }} />
         <Stack.Screen name="messages" options={{ ...stackScreen, title: 'Broadcasts' }} />
         <Stack.Screen name="mess-info" options={{ ...stackScreen, title: 'Mess Info' }} />
+        <Stack.Screen name="give-payment" options={{ ...stackScreen, title: 'Give Payment' }} />
         <Stack.Screen name="change-password" options={{ ...stackScreen, title: 'Change Password' }} />
         <Stack.Screen name="manager/meal-entry" options={{ ...stackScreen, title: 'Meal Entry' }} />
         <Stack.Screen name="manager/bazar-entry" options={{ ...stackScreen, title: 'Bazar Entry' }} />

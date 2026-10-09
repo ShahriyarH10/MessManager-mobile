@@ -3,7 +3,7 @@
     "name": "MessManager",
     "slug": "MessManager-mobile",
     "scheme": "messmanager",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -60,7 +60,9 @@
           "color": "#d4a853"
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "extra": {
       "router": {},

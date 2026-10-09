@@ -13,6 +13,9 @@ const TYPE_LABEL: Record<string, { icon: IconName; label: string }> = {
   bazar_update: { icon: 'bazar', label: 'updated bazar' },
   utility_update: { icon: 'utility', label: 'recorded a utility payment' },
   rent_update: { icon: 'rent', label: 'recorded a rent payment' },
+  payment_request: { icon: 'rent', label: 'wants to give a payment — confirm in Collect' },
+  payment_confirmed: { icon: 'rent', label: 'confirmed a member payment' },
+  payment_rejected: { icon: 'rent', label: 'rejected a member payment' },
   meal_request: { icon: 'meals', label: 'meal entry' },
   bazar_request: { icon: 'bazar', label: 'bazar entry' },
   bill_payment: { icon: 'utility', label: 'utility / rent entry' },
@@ -127,9 +130,9 @@ export default function ManagerNotifications() {
                 {(n.type === 'bazar_update' || n.type === 'bazar_request') && (
                   <Text style={{ color: colors.green, fontWeight: '700' }}>{fmtTk(Number(d.amount || 0))}</Text>
                 )}
-                {(n.type === 'utility_update' || n.type === 'rent_update' || n.type === 'bill_payment') && (
+                {(n.type === 'utility_update' || n.type === 'rent_update' || n.type === 'bill_payment' || n.type === 'payment_request') && (
                   <>
-                    <Chip text={d.billLabel || (n.type === 'rent_update' ? 'Room Rent' : 'Utility')} />
+                    <Chip text={d.billLabel || (n.type === 'rent_update' ? 'Room Rent' : n.type === 'payment_request' ? 'Pending' : 'Utility')} />
                     <Text style={{ color: colors.green, fontWeight: '700' }}>{fmtTk(Number(d.amount || 0))}</Text>
                     {d.monthName ? <Chip text={`${d.monthName} ${d.year || ''}`} /> : null}
                   </>
