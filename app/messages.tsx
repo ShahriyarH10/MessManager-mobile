@@ -6,6 +6,7 @@ import { ScreenScroll, Card, Loading, Centered, EmptyState } from '../src/compon
 import { Badge } from '../src/components/form';
 import { Icon } from '../src/components/Icon';
 import { useTheme, radius } from '../src/theme';
+import { useRouteProgress } from '../src/components/motion';
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -23,6 +24,7 @@ export default function Messages() {
   const { colors } = useTheme();
   const [items, setItems] = useState<Broadcast[] | null>(null);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {

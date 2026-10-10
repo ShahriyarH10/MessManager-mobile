@@ -17,6 +17,7 @@ import { Button, Field, NumberField, TextField, DateField } from '../../src/comp
 import { Icon } from '../../src/components/Icon';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, MealRow } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 export default function MealLog() {
   const { colors } = useTheme();
@@ -25,6 +26,7 @@ export default function MealLog() {
   const [allMeals, setAllMeals] = useState<MealRow[]>([]);
   const [absences, setAbsences] = useState<AttendanceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [date, setDate] = useState(todayStr());

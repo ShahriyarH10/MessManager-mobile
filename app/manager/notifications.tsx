@@ -7,6 +7,7 @@ import { Badge } from '../../src/components/form';
 import { Icon, type IconName } from '../../src/components/Icon';
 import { fmtTk } from '../../src/core/format';
 import { useTheme, radiusSm } from '../../src/theme';
+import { useRouteProgress } from '../../src/components/motion';
 
 const TYPE_LABEL: Record<string, { icon: IconName; label: string }> = {
   meal_update: { icon: 'meals', label: 'updated a meal' },
@@ -31,6 +32,7 @@ export default function ManagerNotifications() {
   const { colors } = useTheme();
   const [rows, setRows] = useState<NotificationRow[] | null>(null);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {

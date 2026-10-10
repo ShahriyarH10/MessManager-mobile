@@ -10,6 +10,7 @@ import { MonthGrid } from '../../src/components/MonthGrid';
 import { Icon } from '../../src/components/Icon';
 import { useTheme } from '../../src/theme';
 import type { Member, BazarRow } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 export default function BazarEntry() {
   const { colors } = useTheme();
@@ -17,6 +18,7 @@ export default function BazarEntry() {
   const [recent, setRecent] = useState<BazarRow[]>([]);
   const [allBazar, setAllBazar] = useState<BazarRow[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [date, setDate] = useState(todayStr());

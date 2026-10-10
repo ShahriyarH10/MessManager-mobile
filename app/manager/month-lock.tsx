@@ -6,6 +6,7 @@ import { Button } from '../../src/components/form';
 import { Icon } from '../../src/components/Icon';
 import { monthLabelFromKey } from '../../src/core/format';
 import { useTheme, radius } from '../../src/theme';
+import { useRouteProgress } from '../../src/components/motion';
 
 type Row = { key: string; locked: boolean; mealDays: number; bazarDays: number };
 
@@ -13,6 +14,7 @@ export default function MonthLock() {
   const { colors } = useTheme();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 

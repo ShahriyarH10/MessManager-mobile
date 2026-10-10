@@ -9,6 +9,7 @@ import { SegmentedControl, Badge, Button } from '../../src/components/form';
 import { useTheme, radiusSm, avatarCol } from '../../src/theme';
 import { initials } from '../../src/core/format';
 import type { Member } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 type Tab = 'members' | 'roles' | 'transfer';
 
@@ -20,6 +21,7 @@ export default function People() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('members');
   const [transferTarget, setTransferTarget] = useState<string | null>(null);

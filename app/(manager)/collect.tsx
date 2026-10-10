@@ -23,6 +23,7 @@ import { MonthYearField, Field, Button } from '../../src/components/form';
 import { Icon } from '../../src/components/Icon';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, MemberPayment } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 export default function Collect() {
   const { colors } = useTheme();
@@ -35,6 +36,7 @@ export default function Collect() {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [cashBack, setCashBack] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [pendingPays, setPendingPays] = useState<MemberPayment[]>([]);

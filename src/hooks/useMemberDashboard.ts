@@ -23,6 +23,7 @@ import {
 } from '../core/format';
 import { LATE_NIGHT_HOUR } from '../lib/config';
 import type { Member, MealRow, BazarRow } from '../core/types';
+import { useRouteProgress } from '../components/motion';
 
 export type WhoAte = {
   id: string;
@@ -86,6 +87,7 @@ function currentMonthMessTotals(allMeals: MealRow[], allBazar: BazarRow[], key: 
 export function useMemberDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {

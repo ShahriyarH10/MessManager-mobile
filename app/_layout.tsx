@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/context/AuthContext';
 import { AppServices } from '../src/components/AppServices';
+import { RouteProgress } from '../src/components/motion';
 import '../src/lib/backgroundPoll'; // registers the OS background-poll task (module scope)
 import { useTheme } from '../src/theme';
 
@@ -53,6 +54,7 @@ function RootStack() {
         <Stack.Screen name="manager/month-lock" options={{ ...stackScreen, title: 'Month Close' }} />
         <Stack.Screen name="manager/absence-calendar" options={{ ...stackScreen, title: 'Absence Calendar' }} />
       </Stack>
+      <RouteProgress />
       <AppServices />
     </>
   );

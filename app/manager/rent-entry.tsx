@@ -7,6 +7,7 @@ import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../.
 import { Button, Field, MonthYearField, Badge } from '../../src/components/form';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, RentRecord } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 type Row = { rent: string; paid: string; status: string; notes: string };
 
@@ -22,6 +23,7 @@ export default function RentEntry() {
   const [members, setMembers] = useState<Member[]>([]);
   const [history, setHistory] = useState<RentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [month, setMonth] = useState(t.month);

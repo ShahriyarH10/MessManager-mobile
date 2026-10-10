@@ -14,7 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme, radiusSm } from '../theme';
 import { MONTHS, todayStr } from '../core/format';
 import { Icon, type IconName } from './Icon';
-import { PressableScale, DotsLoader } from './motion';
+import { PressableScale, ButtonSpinner, useDelayedFlag } from './motion';
 
 function tap() {
   Haptics.selectionAsync().catch(() => {});
@@ -36,6 +36,7 @@ export function Button({
   style?: ViewStyle;
 }) {
   const { colors } = useTheme();
+  const spin = useDelayedFlag(!!busy, 140); // web: spinner joins the label after 140ms
   const bg =
     variant === 'primary' ? colors.accent : variant === 'danger' ? colors.redBg : 'transparent';
   const fg =
@@ -60,16 +61,15 @@ export function Button({
           minHeight: 48,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: busy ? 0.9 : disabled ? 0.55 : 1,
+          opacity: busy ? 0.85 : disabled ? 0.55 : 1,
+          flexDirection: 'row',
+          gap: 8,
         },
         style,
       ]}
     >
-      {busy ? (
-        <DotsLoader color={fg} />
-      ) : (
-        <Text style={{ color: fg, fontWeight: '800', fontSize: 15 }}>{label}</Text>
-      )}
+      {spin ? <ButtonSpinner color={fg} /> : null}
+      <Text style={{ color: fg, fontWeight: '800', fontSize: 15 }}>{label}</Text>
     </PressableScale>
   );
 }

@@ -12,6 +12,7 @@ import { ScreenScroll, Card, CardTitle, Loading, Centered, EmptyState } from '..
 import { Button, Field, TextField, SegmentedControl, PickerField, Badge } from '../../src/components/form';
 import { Icon } from '../../src/components/Icon';
 import { useTheme, radius, radiusSm } from '../../src/theme';
+import { useRouteProgress } from '../../src/components/motion';
 
 const EXPIRY: { label: string; value: string }[] = [
   { label: 'Never', value: '' },
@@ -25,6 +26,7 @@ export default function ManagerBroadcasts() {
   const { colors } = useTheme();
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [msg, setMsg] = useState('');

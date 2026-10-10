@@ -4,6 +4,7 @@ import { dbGetAuditLog, type AuditRow } from '../../src/lib/db';
 import { ScreenScroll, Card, Loading, Centered } from '../../src/components/ui';
 import { SegmentedControl, TextField, Field } from '../../src/components/form';
 import { useTheme, radiusSm } from '../../src/theme';
+import { useRouteProgress } from '../../src/components/motion';
 
 const CATS: { label: string; value: string }[] = [
   { label: 'All', value: '' },
@@ -20,6 +21,7 @@ export default function AuditLog() {
   const { colors } = useTheme();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
   const [cat, setCat] = useState('');
   const [q, setQ] = useState('');

@@ -10,7 +10,7 @@ import { computeSplit, buildPaymentReceiptText, receiptNumber } from '../src/cor
 import { thisMonth, fmtTk, monthKey, monthLabelFromKey, round2 } from '../src/core/format';
 import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../src/components/ui';
 import { Button, Field, NumberField, MonthYearField, Badge } from '../src/components/form';
-import { SuccessCheck, AnimatedNumber, Reveal } from '../src/components/motion';
+import { SuccessCheck, AnimatedNumber, Reveal, useRouteProgress } from '../src/components/motion';
 import { useTheme } from '../src/theme';
 import type { Member, MemberPayment } from '../src/core/types';
 
@@ -29,6 +29,7 @@ export default function GivePayment() {
   const [payments, setPayments] = useState<MemberPayment[]>([]);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);

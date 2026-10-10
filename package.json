@@ -43,8 +43,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test:settlement": "tsc --ignoreConfig --ignoreDeprecations 6.0 --types node --skipLibCheck --module commonjs --target es2020 --moduleResolution node --esModuleInterop --outDir dist-test --rootDir . src/core/settlement.ts src/core/format.ts src/core/meals.ts src/core/types.ts scripts/settlement-parity.ts && node dist-test/scripts/settlement-parity.js"

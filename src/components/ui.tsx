@@ -178,7 +178,7 @@ export function ScreenScroll({
       keyboardShouldPersistTaps="handled"
       refreshControl={refreshControl}
     >
-      <Reveal index={0} style={{ marginBottom: 2 }}>
+      <Reveal variant="up" style={{ marginBottom: 2 }}>
         <Text style={{ color: colors.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.4 }}>
           {title}
         </Text>

@@ -15,7 +15,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsModule from 'expo-notifications';
 import * as Device from 'expo-device';
 import { getSession } from './session';
 import {
@@ -35,6 +35,38 @@ let configured = false;
  * tick can both fire within the same second). Without this, both reads see the
  * same "seen" list and each fires its own notification for the new row.
  */
+/**
+ * expo-notifications throws on import inside Android Expo Go (remote push was
+ * removed from it in SDK 53), which would take the whole app down. There we
+ * load a harmless stand-in instead; real builds and iOS Expo Go use the real
+ * module. Use a development build / the APK to test notifications.
+ */
+const IN_EXPO_GO = Constants.executionEnvironment === 'storeClient';
+export const PUSH_SUPPORTED = !(Platform.OS === 'android' && IN_EXPO_GO);
+
+const notificationsStub = {
+  AndroidImportance: { HIGH: 4 },
+  setNotificationHandler: () => {},
+  setNotificationChannelAsync: async () => null,
+  addNotificationReceivedListener: () => ({ remove: () => {} }),
+  getPermissionsAsync: async () => ({ status: 'denied' }),
+  requestPermissionsAsync: async () => ({ status: 'denied' }),
+  getExpoPushTokenAsync: async () => {
+    throw new Error('Push notifications are not available in Expo Go on Android.');
+  },
+  scheduleNotificationAsync: async () => '',
+} as unknown as typeof NotificationsModule;
+
+let Notifications: typeof NotificationsModule = notificationsStub;
+if (PUSH_SUPPORTED) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    Notifications = require('expo-notifications');
+  } catch {
+    Notifications = notificationsStub;
+  }
+}
+
 let broadcastsBusy = false;
 let mealUpdatesBusy = false;
 
@@ -112,6 +144,10 @@ async function recordResult(patch: { token?: string | null; error?: string | nul
  */
 export async function registerPushToken(force = false): Promise<string | null> {
   if (!getSession()?.user) return null;
+  if (!PUSH_SUPPORTED) {
+    await recordResult({ error: 'Push is not available in Expo Go on Android — use the installed app (APK).' });
+    return null;
+  }
   if (!Device.isDevice) {
     await recordResult({ error: 'Not a physical device (emulator / Expo Go get no push token).' });
     return null;

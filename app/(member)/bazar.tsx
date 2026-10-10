@@ -9,12 +9,14 @@ import { Button, Field, NumberField, TextField, DateField } from '../../src/comp
 import { MonthGrid } from '../../src/components/MonthGrid';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, BazarRow } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 export default function BazarLog() {
   const { colors } = useTheme();
   const [member, setMember] = useState<Member | null>(null);
   const [rows, setRows] = useState<BazarRow[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [date, setDate] = useState(todayStr());

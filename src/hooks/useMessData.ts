@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { dbGetMembers, dbGetMeals, dbGetBazar, dbGetRent, dbGetUtility } from '../lib/db';
 import type { Member, MealRow, BazarRow, RentRecord, UtilityRecord } from '../core/types';
+import { useRouteProgress } from '../components/motion';
 
 export type MessData = {
   members: Member[];
@@ -18,6 +19,7 @@ export type MessData = {
 export function useMessData() {
   const [data, setData] = useState<MessData | null>(null);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {

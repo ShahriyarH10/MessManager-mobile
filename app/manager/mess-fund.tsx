@@ -11,11 +11,13 @@ import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered } from '../.
 import { Button, Field, NumberField, TextField, DateField, SegmentedControl, Badge } from '../../src/components/form';
 import { todayStr, fmtTk, round2 } from '../../src/core/format';
 import { useTheme, radiusSm } from '../../src/theme';
+import { useRouteProgress } from '../../src/components/motion';
 
 export default function MessFund() {
   const { colors } = useTheme();
   const [entries, setEntries] = useState<FundEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [type, setType] = useState<'deposit' | 'withdrawal'>('deposit');

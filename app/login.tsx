@@ -15,7 +15,7 @@ import { LoginError } from '../src/lib/auth';
 import { WEBSITE_URL } from '../src/lib/config';
 import { useTheme, radiusSm } from '../src/theme';
 import { Loading } from '../src/components/ui';
-import { Reveal, PressableScale, DotsLoader } from '../src/components/motion';
+import { Reveal, PressableScale, ButtonSpinner, useDelayedFlag } from '../src/components/motion';
 
 export default function Login() {
   const { ready, user, area, signIn } = useAuth();
@@ -26,6 +26,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
+  const spin = useDelayedFlag(busy, 140);
   const [err, setErr] = useState<string | null>(null);
 
   if (!ready) return <Loading brand />;
@@ -144,14 +145,13 @@ export default function Login() {
               minHeight: 50,
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: busy ? 0.9 : 1,
+              opacity: busy ? 0.85 : 1,
+              flexDirection: 'row',
+              gap: 8,
             }}
           >
-            {busy ? (
-              <DotsLoader color="#1a1816" />
-            ) : (
-              <Text style={{ color: '#1a1816', fontSize: 16, fontWeight: '800' }}>Sign in</Text>
-            )}
+            {spin ? <ButtonSpinner color="#1a1816" /> : null}
+            <Text style={{ color: '#1a1816', fontSize: 16, fontWeight: '800' }}>Sign in</Text>
           </PressableScale>
         </Reveal>
 

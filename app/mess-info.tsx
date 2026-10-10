@@ -4,11 +4,13 @@ import { dbGetMessRules, type MessRules } from '../src/lib/db';
 import { ScreenScroll, Card, CardTitle, Loading } from '../src/components/ui';
 import { Markdown } from '../src/components/Markdown';
 import { useTheme, radiusSm } from '../src/theme';
+import { useRouteProgress } from '../src/components/motion';
 
 export default function MessInfo() {
   const { colors } = useTheme();
   const [rules, setRules] = useState<MessRules | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
 
   const load = useCallback(async () => {
     try {

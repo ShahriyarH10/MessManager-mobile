@@ -9,6 +9,7 @@ import { ScreenScroll, Card, CardTitle, Loading, Centered } from '../../src/comp
 import { Button, Field, NumberField, TextField, MonthYearField, PickerField, Badge } from '../../src/components/form';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, RentRecord, UtilityRecord } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 const TYPES: { label: string; value: PaymentType }[] = [
   { label: 'Electricity', value: 'elec' },
@@ -32,6 +33,7 @@ export default function Payments() {
   const [rent, setRent] = useState<RentRecord[]>([]);
   const [util, setUtil] = useState<UtilityRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [month, setMonth] = useState(t.month);

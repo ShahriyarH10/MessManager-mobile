@@ -12,6 +12,7 @@ import { Icon } from '../../src/components/Icon';
 import { mealRowTotal } from '../../src/core/meals';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, MealRow } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 type Vals = Record<string, { day: string; night: string }>;
 
@@ -21,6 +22,7 @@ export default function MealEntry() {
   const [recent, setRecent] = useState<MealRow[]>([]);
   const [allMeals, setAllMeals] = useState<MealRow[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const [date, setDate] = useState(todayStr());

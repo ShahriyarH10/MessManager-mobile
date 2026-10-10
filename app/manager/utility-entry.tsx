@@ -21,6 +21,7 @@ import { ScreenScroll, Card, CardTitle, StatCard, Loading, Centered, CarryTag } 
 import { Button, Field, MonthYearField, Badge } from '../../src/components/form';
 import { useTheme, radiusSm } from '../../src/theme';
 import type { Member, UtilityRecord } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 const BILL_FIELDS: { key: string; label: string; group: 'prepaid' | 'postpaid' }[] = [
   { key: 'elec', label: 'Electricity', group: 'prepaid' },
@@ -44,6 +45,7 @@ export default function UtilityEntry() {
   const [members, setMembers] = useState<Member[]>([]);
   const [history, setHistory] = useState<UtilityRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   // Bills

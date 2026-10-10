@@ -8,6 +8,7 @@ import { MonthYearField, Badge } from '../../src/components/form';
 import { useTheme, radiusSm, avatarCol } from '../../src/theme';
 import { initials } from '../../src/core/format';
 import type { Member, MealRow } from '../../src/core/types';
+import { useRouteProgress } from '../../src/components/motion';
 
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -20,6 +21,7 @@ export default function AbsenceCalendar() {
   const [meals, setMeals] = useState<MealRow[]>([]);
   const [att, setAtt] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  useRouteProgress(loading);
   const [error, setError] = useState<string | null>(null);
 
   const key = monthKey(year, month);
